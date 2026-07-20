@@ -28,15 +28,43 @@ class PlaywrightSniffer(ISniffer):
         """
         try:
             async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
+                browser = await p.chromium.launch(
+                    headless=True, 
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--autoplay-policy=no-user-gesture-required",
+                        "--mute-audio"
+                    ]
+                )
                 context = await browser.new_context(
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 )
                 page = await context.new_page()
                 
+                # Network Interception for MP4/Video streams (Reels/Stories)
+                captured_videos = set()
+                def handle_response(response):
+                    try:
+                        url = response.url
+                        content_type = response.headers.get("content-type", "")
+                        if response.request.resource_type == "media" or ".mp4" in url or "video" in content_type:
+                            # Filter out small segments if possible, prefer full videos
+                            if "byte-range" not in url and "segment" not in url:
+                                captured_videos.add(url)
+                    except:
+                        pass
+                page.on("response", handle_response)
+                
                 # Navigate and wait for network idle
                 await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                await page.wait_for_timeout(4000) # Give IG/JS time to render
+                await page.wait_for_timeout(3000)
+                
+                # Simulate a click in the center of the viewport to trigger potential play-on-click
+                try:
+                    await page.mouse.click(300, 300)
+                    await page.wait_for_timeout(2000) # Give IG/JS time to render and buffer video
+                except:
+                    pass
                 
                 media_items = []
                 for _ in range(15): # Max 15 carousel items
@@ -48,8 +76,10 @@ class PlaywrightSniffer(ISniffer):
                             return url.replace(/\\/[cps][0-9]+[0-9x\\.]+\\//g, '/').replace(/\\/e[0-9]+\\//g, '/');
                         }
     
-                        // 1. Video tags
-                        let videos = Array.from(document.querySelectorAll('video'));
+                        let container = document.querySelector('article') || document.querySelector('main') || document;
+                        
+                        // 1. Video tags (fallback if network interception misses)
+                        let videos = Array.from(container.querySelectorAll('video'));
                         for (let video of videos) {
                             if (video.src && !video.src.startsWith('blob:')) {
                                 results.push({url: video.src, type: 'video'});
@@ -57,7 +87,7 @@ class PlaywrightSniffer(ISniffer):
                         }
                         
                         // 2. Image tags
-                        let imgs = Array.from(document.querySelectorAll('img'));
+                        let imgs = Array.from(container.querySelectorAll('img'));
                         for (let img of imgs) {
                             if (img.src && img.src.startsWith('data:')) continue;
                             
@@ -109,6 +139,13 @@ class PlaywrightSniffer(ISniffer):
                     for item in new_items:
                         if item not in media_items:
                             media_items.append(item)
+                            
+                    # Inject captured network videos
+                    for vid_url in list(captured_videos):
+                        clean_url = vid_url.split('?')[0] if '?' in vid_url else vid_url
+                        # Basic deduplication
+                        if not any(clean_url in m['url'] for m in media_items if m['type'] == 'video'):
+                            media_items.insert(0, {'url': vid_url, 'type': 'video'})
                             
                     try:
                         next_btn = await page.query_selector('button[aria-label="Next"]')
