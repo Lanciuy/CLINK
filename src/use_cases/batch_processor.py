@@ -53,14 +53,14 @@ class BatchProcessor:
                         "tier_used": 1
                     })
                     
-            coro = self._download_single(url, task_id, hook, progress_callback, enhance_images)
+            coro = self._download_single(url, task_id, hook, progress_callback, enhance_images, format_type, is_playlist)
             task = asyncio.create_task(coro)
             self.tasks[task_id] = task
             coroutines.append(task)
             
         await asyncio.gather(*coroutines, return_exceptions=True)
         
-    async def _download_single(self, url: str, task_id: str, hook: Callable, callback: Callable, enhance_image: bool):
+    async def _download_single(self, url: str, task_id: str, hook: Callable, callback: Callable, enhance_images: bool, format_type: str, is_playlist: bool):
         async with self.semaphore:
             try:
                 callback({
@@ -73,7 +73,13 @@ class BatchProcessor:
                     "tier_used": 1
                 })
                 
-                file_path = await self.downloader.execute(url, progress_hook=hook, enhance_image=enhance_image)
+                file_path = await self.downloader.execute(
+                    url, 
+                    progress_callback=hook, 
+                    enhance_images=enhance_images,
+                    format_type=format_type,
+                    is_playlist=is_playlist
+                )
                 
                 callback({
                     "id": task_id,

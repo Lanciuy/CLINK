@@ -168,15 +168,17 @@ downloadSelectedBtn.onclick = async () => {
             })
         });
         
-        // Hide selection grid after engaging download
-        selectionSection.classList.add('hidden');
-        extractedMediaItems = [];
+        // UX Improvement: Clear selection but keep the grid visible
+        // so users can select other items without refreshing the page.
         selectedUrls.clear();
         selectedCount.textContent = '0';
+        renderMediaGrid();
+        downloadSelectedBtn.innerHTML = `Download (<span id="selectedCount">0</span>)`;
         
     } catch (e) {
         console.error("Failed to start download", e);
         alert("Failed to connect to the server.");
+        downloadSelectedBtn.innerHTML = `Download (<span id="selectedCount">${selectedUrls.size}</span>)`;
     }
 };
 

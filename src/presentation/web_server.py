@@ -29,7 +29,7 @@ from infrastructure.realesrgan_engine import RealESRGANEngine
 # Infrastructure Adapters (Tier 1 to 4)
 ytdlp_engine = YTDLPEngine(storage.get_download_path())
 playwright_sniffer = PlaywrightSniffer()
-cookie_manager = LocalCookieManager()
+cookie_manager = LocalCookieManager(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 ffmpeg_merger = FFmpegMerger()
 realesrgan_engine = RealESRGANEngine(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 

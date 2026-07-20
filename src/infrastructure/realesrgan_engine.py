@@ -57,7 +57,7 @@ class RealESRGANEngine(IEnhancer):
             self.exe_path,
             "-i", file_path,
             "-o", out_path,
-            "-n", "realesrnet-x4plus",
+            "-n", "realesrgan-x4plus",
             "-s", "4",
             "-f", "png"
         ]
