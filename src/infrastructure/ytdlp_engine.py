@@ -13,22 +13,34 @@ class YTDLPEngine(IExtractorEngine):
         self.output_dir = output_dir
         self.logger = logging.getLogger(__name__)
 
-    def extract(self, url: str, progress_hook: Optional[Callable[[Dict], None]] = None, use_cookies: bool = False) -> str:
+    def extract(self, url: str, progress_hook: Optional[Callable[[Dict], None]] = None, use_cookies: bool = False, cookies_path: Optional[str] = None, format_type: str = "video", is_playlist: bool = False) -> str:
         """
         Extracts media from URL.
         Returns the path to the downloaded file.
         """
+        is_audio = format_type == "audio"
+        
         ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'format': 'bestaudio/best' if is_audio else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'outtmpl': os.path.join(self.output_dir, '%(title)s.%(ext)s'),
-            'merge_output_format': 'mp4',
-            'noplaylist': True,
+            'noplaylist': not is_playlist,
             'quiet': True,
             'no_warnings': True,
         }
+        
+        if is_audio:
+            ydl_opts['postprocessors'] = [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }]
+        else:
+            ydl_opts['merge_output_format'] = 'mp4'
 
-        if use_cookies:
-            # Try Chrome cookies
+        if cookies_path:
+            ydl_opts['cookiefile'] = cookies_path
+        elif use_cookies:
+            # Try Chrome cookies fallback
             ydl_opts['cookiesfrombrowser'] = ('chrome', )
 
         if progress_hook:
@@ -40,11 +52,16 @@ class YTDLPEngine(IExtractorEngine):
                 if not info_dict:
                     raise ExtractionFailedException("Failed to extract info", url, 1)
                 
-                # The actual file path might have changed after merging
+                # The actual file path might have changed after merging/postprocessing
                 expected_filename = ydl.prepare_filename(info_dict)
-                # yt-dlp appends .mp4 if merge_output_format is set and it merged
-                if not expected_filename.endswith('.mp4') and os.path.exists(expected_filename.rsplit('.', 1)[0] + '.mp4'):
-                     return expected_filename.rsplit('.', 1)[0] + '.mp4'
+                
+                if is_audio:
+                    base_name = expected_filename.rsplit('.', 1)[0]
+                    if os.path.exists(base_name + '.mp3'):
+                        return base_name + '.mp3'
+                else:
+                    if not expected_filename.endswith('.mp4') and os.path.exists(expected_filename.rsplit('.', 1)[0] + '.mp4'):
+                         return expected_filename.rsplit('.', 1)[0] + '.mp4'
                 
                 return expected_filename
                 
@@ -58,15 +75,17 @@ class YTDLPEngine(IExtractorEngine):
             else:
                 raise ExtractionFailedException(str(e), url, 1)
 
-    async def analyze(self, url: str, use_cookies: bool = False) -> Dict[str, Any]:
+    async def analyze(self, url: str, use_cookies: bool = False, cookies_path: Optional[str] = None, is_playlist: bool = False) -> Dict[str, Any]:
         """Extracts metadata without downloading. Returns the info_dict."""
         ydl_opts = {
-            'noplaylist': False, # Allow playlist/carousel extraction
+            'noplaylist': not is_playlist,
             'quiet': True,
             'no_warnings': True,
         }
         
-        if use_cookies:
+        if cookies_path:
+            ydl_opts['cookiefile'] = cookies_path
+        elif use_cookies:
             ydl_opts['cookiesfrombrowser'] = ('chrome', )
             
         def _extract():

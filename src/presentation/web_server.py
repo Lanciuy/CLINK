@@ -6,7 +6,7 @@ from typing import List
 import os
 import asyncio
 
-from domain.models import DownloadRequest, BatchDownloadRequest, AnalyzeRequest, AnalyzeResponse
+from domain.models import DownloadRequest, BatchDownloadRequest, AnalyzeRequest, AnalyzeResponse, CookieSaveRequest, CookieSaveResponse
 from use_cases.local_storage import LocalStorage
 from use_cases.batch_processor import BatchProcessor
 from use_cases.analyze_media import AnalyzeMediaUseCase
@@ -54,7 +54,7 @@ async def analyze_url(request: AnalyzeRequest):
     try:
         if not request.urls:
             raise Exception("No URLs provided")
-        return await analyze_use_case.execute(request.urls[0])
+        return await analyze_use_case.execute(request.urls[0], is_playlist=request.is_playlist)
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
@@ -76,9 +76,23 @@ async def start_downloads(request: BatchDownloadRequest):
     urls = [str(url) for url in request.urls]
     
     # Run the processor in the background
-    asyncio.create_task(processor.process_batch(urls, progress_callback, enhance_images=request.enhance_images))
+    asyncio.create_task(processor.process_batch(
+        urls, 
+        progress_callback, 
+        enhance_images=request.enhance_images,
+        format_type=request.format_type,
+        is_playlist=request.is_playlist
+    ))
     
     return {"message": "Downloads started", "count": len(urls)}
+
+@app.post("/api/settings/cookies", response_model=CookieSaveResponse)
+async def save_cookies(request: CookieSaveRequest):
+    try:
+        cookie_manager.save_cookies(request.cookie_content)
+        return CookieSaveResponse(message="Cookies saved successfully.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/open-folder")
 async def open_folder():

@@ -57,7 +57,7 @@ class RealESRGANEngine(IEnhancer):
             self.exe_path,
             "-i", file_path,
             "-o", out_path,
-            "-n", "realesrgan-x4plus",
+            "-n", "realesrnet-x4plus",
             "-s", "4",
             "-f", "png"
         ]
@@ -82,6 +82,22 @@ class RealESRGANEngine(IEnhancer):
             
             # If successful, replace original with enhanced
             if os.path.exists(result_path):
+                # Apply Unsharp Mask to restore micro-contrast (pores/hair)
+                try:
+                    from PIL import Image, ImageFilter
+                    self.logger.info("Applying Unsharp Mask for facial/texture restoration...")
+                    with Image.open(result_path) as img:
+                        # Convert to RGB to avoid alpha channel issues with some filters
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        # Radius 2, Percent 150, Threshold 3 is great for skin/hair
+                        enhanced_img = img.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=3))
+                        enhanced_img.save(result_path, quality=95)
+                except ImportError:
+                    self.logger.warning("Pillow not installed. Skipping Unsharp Mask.")
+                except Exception as ex:
+                    self.logger.error(f"Post-processing failed: {ex}")
+                    
                 os.remove(file_path)
                 final_path = file_path.rsplit('.', 1)[0] + ".png"
                 os.rename(result_path, final_path)

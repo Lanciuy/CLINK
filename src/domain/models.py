@@ -22,6 +22,8 @@ class MediaItem(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     urls: List[HttpUrl]
+    format_type: str = "video"
+    is_playlist: bool = False
 
 class AnalyzeResponse(BaseModel):
     source_url: str
@@ -35,6 +37,14 @@ class DownloadRequest(BaseModel):
 class BatchDownloadRequest(BaseModel):
     urls: List[HttpUrl]
     enhance_images: bool = False
+    format_type: str = "video"
+    is_playlist: bool = False
+
+class CookieSaveRequest(BaseModel):
+    cookie_content: str
+
+class CookieSaveResponse(BaseModel):
+    message: str
 
 class DownloadProgress(BaseModel):
     id: str

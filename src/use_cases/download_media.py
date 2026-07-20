@@ -15,21 +15,22 @@ class DownloadMediaUseCase:
         self.enhancer = enhancer
         self.logger = logging.getLogger(__name__)
         
-    async def execute(self, url: str, progress_hook: Optional[Callable[[Dict], None]] = None, enhance_image: bool = False) -> str:
+    async def execute(self, url: str, progress_callback: Callable[[Dict], None], enhance_images: bool = False, format_type: str = "video", is_playlist: bool = False) -> str:
         """
-        Executes the 4-tier download strategy.
+        Coordinates the multi-tier extraction process for a single item.
         Returns the path to the downloaded file.
         """
         last_error = None
         self.logger.info(f"Starting cascade extraction for {url}")
         
         file_path = None
+        cookies_path = self.cookie_manager.get_cookies_path()
         
         # Tier 1: Fast-Path `yt-dlp`
         try:
             self.logger.info("Attempting Tier 1 (yt-dlp)")
             loop = asyncio.get_running_loop()
-            file_path = await loop.run_in_executor(None, lambda: self.extractor.extract(url, progress_hook=progress_hook))
+            file_path = await loop.run_in_executor(None, lambda: self.extractor.extract(url, progress_hook=progress_callback, use_cookies=False, cookies_path=cookies_path, format_type=format_type, is_playlist=is_playlist))
         except (ExtractionFailedException, RateLimitException, LoginRequiredException) as e:
             self.logger.warning(f"Tier 1 failed: {e}")
             last_error = e
@@ -39,7 +40,7 @@ class DownloadMediaUseCase:
             try:
                 self.logger.info("Tier 1 failed. Attempting Tier 3 (Local Cookie Bridge)")
                 loop = asyncio.get_running_loop()
-                file_path = await loop.run_in_executor(None, lambda: self.extractor.extract(url, progress_hook=progress_hook, use_cookies=True))
+                file_path = await loop.run_in_executor(None, lambda: self.extractor.extract(url, progress_hook=progress_callback, use_cookies=True, cookies_path=cookies_path, format_type=format_type, is_playlist=is_playlist))
                 last_error = None
             except Exception as e:
                 self.logger.warning(f"Tier 3 failed: {e}")
@@ -54,12 +55,12 @@ class DownloadMediaUseCase:
                 
                 # Use Tier 1 to download the raw CDN URL
                 loop = asyncio.get_running_loop()
-                file_path = await loop.run_in_executor(None, lambda: self.extractor.extract(sniffed_url, progress_hook=progress_hook))
+                file_path = await loop.run_in_executor(None, lambda: self.extractor.extract(sniffed_url, progress_hook=progress_callback, cookies_path=cookies_path, format_type=format_type, is_playlist=is_playlist))
             except Exception as e:
                 self.logger.error(f"Tier 2 failed: {e}")
                 raise ExtractionFailedException(f"All extraction tiers failed for {url}. Last error: {str(e)}", url, 4)
 
-        if enhance_image and self.enhancer and file_path:
+        if enhance_images and self.enhancer and file_path:
             self.logger.info(f"Enhancing downloaded image: {file_path}")
             file_path = await self.enhancer.enhance(file_path)
             

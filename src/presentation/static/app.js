@@ -11,6 +11,56 @@ const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
 const selectedCount = document.getElementById('selectedCount');
 const enhanceToggle = document.getElementById('enhanceToggle');
 
+// New Settings Elements
+const toggleSettingsBtn = document.getElementById('toggleSettingsBtn');
+const settingsPanel = document.getElementById('settingsPanel');
+const formatSelect = document.getElementById('formatSelect');
+const playlistToggle = document.getElementById('playlistToggle');
+const saveCookiesBtn = document.getElementById('saveCookiesBtn');
+const cookiesInput = document.getElementById('cookiesInput');
+
+// Advanced Settings Logic
+if (toggleSettingsBtn) {
+    toggleSettingsBtn.addEventListener('click', () => {
+        settingsPanel.classList.toggle('hidden');
+    });
+}
+
+if (saveCookiesBtn) {
+    saveCookiesBtn.addEventListener('click', async () => {
+        const content = cookiesInput.value.trim();
+        if (!content) return;
+        
+        saveCookiesBtn.textContent = 'Saving...';
+        saveCookiesBtn.disabled = true;
+        
+        try {
+            const res = await fetch('/api/settings/cookies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cookie_content: content })
+            });
+            if (res.ok) {
+                saveCookiesBtn.textContent = 'Saved!';
+                saveCookiesBtn.classList.replace('text-brand-300', 'text-emerald-400');
+                saveCookiesBtn.classList.replace('border-brand-500/30', 'border-emerald-500/30');
+                setTimeout(() => {
+                    saveCookiesBtn.textContent = 'Save Cookies';
+                    saveCookiesBtn.classList.replace('text-emerald-400', 'text-brand-300');
+                    saveCookiesBtn.classList.replace('border-emerald-500/30', 'border-brand-500/30');
+                }, 2000);
+            } else {
+                alert('Failed to save cookies.');
+                saveCookiesBtn.textContent = 'Save Cookies';
+            }
+        } catch(e) {
+            alert('Error connecting to server.');
+            saveCookiesBtn.textContent = 'Save Cookies';
+        }
+        saveCookiesBtn.disabled = false;
+    });
+}
+
 // UI State
 let activeDownloads = new Map();
 let extractedMediaItems = [];
@@ -112,7 +162,9 @@ downloadSelectedBtn.onclick = async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 urls: urlsToDownload,
-                enhance_images: enhanceToggle.checked
+                enhance_images: enhanceToggle.checked,
+                format_type: formatSelect ? formatSelect.value : "video",
+                is_playlist: playlistToggle ? playlistToggle.checked : false
             })
         });
         
@@ -147,7 +199,11 @@ downloadBtn.addEventListener('click', async () => {
         const res = await fetch('/api/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ urls }) // Sending the list of urls (backend currently only processes the first)
+            body: JSON.stringify({ 
+                urls,
+                format_type: formatSelect ? formatSelect.value : "video",
+                is_playlist: playlistToggle ? playlistToggle.checked : false
+            }) // Sending the list of urls (backend currently only processes the first)
         });
         
         const data = await res.json();

@@ -13,7 +13,7 @@ class BatchProcessor:
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.logger = logging.getLogger(__name__)
         
-    async def process_batch(self, urls: List[str], progress_callback: Callable, enhance_images: bool = False):
+    async def process_batch(self, urls: List[str], progress_callback: Callable, enhance_images: bool = False, format_type: str = "video", is_playlist: bool = False):
         """
         Processes a list of URLs concurrently.
         """

@@ -4,11 +4,11 @@ from typing import Callable, Optional, Dict, List, Any
 class IExtractorEngine(abc.ABC):
     """Tier 1 interface for fast-path media extraction."""
     @abc.abstractmethod
-    def extract(self, url: str, progress_hook: Optional[Callable[[Dict], None]] = None, use_cookies: bool = False) -> str:
+    def extract(self, url: str, progress_hook: Optional[Callable[[Dict], None]] = None, use_cookies: bool = False, cookies_path: Optional[str] = None, format_type: str = "video", is_playlist: bool = False) -> str:
         pass
         
     @abc.abstractmethod
-    async def analyze(self, url: str, use_cookies: bool = False) -> Dict[str, Any]:
+    async def analyze(self, url: str, use_cookies: bool = False, cookies_path: Optional[str] = None, is_playlist: bool = False) -> Dict[str, Any]:
         pass
 
 class ISniffer(abc.ABC):
@@ -25,6 +25,16 @@ class ICookieManager(abc.ABC):
     """Tier 3 interface for local cookie extraction."""
     @abc.abstractmethod
     def get_cookies_for_domain(self, domain: str) -> str:
+        pass
+        
+    @abc.abstractmethod
+    def get_cookies_path(self) -> Optional[str]:
+        """Returns path to cookies.txt if exists and valid."""
+        pass
+        
+    @abc.abstractmethod
+    def save_cookies(self, cookie_content: str) -> None:
+        """Saves Netscape format cookies to cookies.txt."""
         pass
 
 class IRemuxer(abc.ABC):

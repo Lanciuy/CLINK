@@ -17,8 +17,9 @@ class AnalyzeMediaUseCase:
         self.cookie_manager = cookie_manager
         self.logger = logging.getLogger(__name__)
 
-    async def execute(self, url: HttpUrl) -> AnalyzeResponse:
+    async def execute(self, url: HttpUrl, is_playlist: bool = False) -> AnalyzeResponse:
         url_str = str(url)
+        cookies_path = self.cookie_manager.get_cookies_path()
         items: List[MediaItem] = []
         error_msg = None
         last_error = None
@@ -27,14 +28,14 @@ class AnalyzeMediaUseCase:
         try:
             # Tier 1: yt-dlp
             self.logger.info(f"Analyzing {url_str} via Tier 1 (yt-dlp)")
-            info = await self.extractor.analyze(url_str)
+            info = await self.extractor.analyze(url_str, use_cookies=False, cookies_path=cookies_path, is_playlist=is_playlist)
         except Exception as e:
             last_error = e
 
         if isinstance(last_error, (LoginRequiredException, ExtractionFailedException)):
             try:
                 self.logger.info("Tier 1 analysis failed. Falling back to Tier 3 (Cookies).")
-                info = await self.extractor.analyze(url_str, use_cookies=True)
+                info = await self.extractor.analyze(url_str, use_cookies=True, cookies_path=cookies_path, is_playlist=is_playlist)
                 last_error = None
             except Exception as e:
                 self.logger.warning(f"Tier 3 analysis failed: {e}")
