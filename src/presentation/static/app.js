@@ -9,6 +9,7 @@ const mediaGrid = document.getElementById('mediaGrid');
 const selectAllBtn = document.getElementById('selectAllBtn');
 const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
 const selectedCount = document.getElementById('selectedCount');
+const enhanceToggle = document.getElementById('enhanceToggle');
 
 // UI State
 let activeDownloads = new Map();
@@ -109,7 +110,10 @@ downloadSelectedBtn.onclick = async () => {
         await fetch('/api/download', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ urls: urlsToDownload })
+            body: JSON.stringify({ 
+                urls: urlsToDownload,
+                enhance_images: enhanceToggle.checked
+            })
         });
         
         // Hide selection grid after engaging download

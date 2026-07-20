@@ -13,7 +13,7 @@ class BatchProcessor:
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.logger = logging.getLogger(__name__)
         
-    async def process_batch(self, urls: List[str], progress_callback: Callable):
+    async def process_batch(self, urls: List[str], progress_callback: Callable, enhance_images: bool = False):
         """
         Processes a list of URLs concurrently.
         """
@@ -53,14 +53,14 @@ class BatchProcessor:
                         "tier_used": 1
                     })
                     
-            coro = self._download_single(url, task_id, hook, progress_callback)
+            coro = self._download_single(url, task_id, hook, progress_callback, enhance_images)
             task = asyncio.create_task(coro)
             self.tasks[task_id] = task
             coroutines.append(task)
             
         await asyncio.gather(*coroutines, return_exceptions=True)
         
-    async def _download_single(self, url: str, task_id: str, hook: Callable, callback: Callable):
+    async def _download_single(self, url: str, task_id: str, hook: Callable, callback: Callable, enhance_image: bool):
         async with self.semaphore:
             try:
                 callback({
@@ -73,7 +73,7 @@ class BatchProcessor:
                     "tier_used": 1
                 })
                 
-                file_path = await self.downloader.execute(url, progress_hook=hook)
+                file_path = await self.downloader.execute(url, progress_hook=hook, enhance_image=enhance_image)
                 
                 callback({
                     "id": task_id,

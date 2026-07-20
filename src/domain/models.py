@@ -34,6 +34,7 @@ class DownloadRequest(BaseModel):
 
 class BatchDownloadRequest(BaseModel):
     urls: List[HttpUrl]
+    enhance_images: bool = False
 
 class DownloadProgress(BaseModel):
     id: str

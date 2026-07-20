@@ -24,15 +24,18 @@ app = FastAPI(title="Clink Media Downloader")
 storage = LocalStorage(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "downloads"))
 os_adapter = OSSystemAdapter()
 
+from infrastructure.realesrgan_engine import RealESRGANEngine
+
 # Infrastructure Adapters (Tier 1 to 4)
 ytdlp_engine = YTDLPEngine(storage.get_download_path())
 playwright_sniffer = PlaywrightSniffer()
 cookie_manager = LocalCookieManager()
 ffmpeg_merger = FFmpegMerger()
+realesrgan_engine = RealESRGANEngine(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 # Use Cases
 analyze_use_case = AnalyzeMediaUseCase(ytdlp_engine, playwright_sniffer, cookie_manager)
-download_use_case = DownloadMediaUseCase(ytdlp_engine, playwright_sniffer, cookie_manager, ffmpeg_merger)
+download_use_case = DownloadMediaUseCase(ytdlp_engine, playwright_sniffer, cookie_manager, ffmpeg_merger, realesrgan_engine)
 processor = BatchProcessor(download_use_case, max_concurrent=5)
 ws_manager = WebSocketManager()
 
@@ -44,6 +47,8 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 async def root():
     return FileResponse(os.path.join(static_dir, "index.html"))
 
+import traceback
+
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 async def analyze_url(request: AnalyzeRequest):
     try:
@@ -51,6 +56,7 @@ async def analyze_url(request: AnalyzeRequest):
             raise Exception("No URLs provided")
         return await analyze_use_case.execute(request.urls[0])
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/download")
@@ -70,7 +76,7 @@ async def start_downloads(request: BatchDownloadRequest):
     urls = [str(url) for url in request.urls]
     
     # Run the processor in the background
-    asyncio.create_task(processor.process_batch(urls, progress_callback))
+    asyncio.create_task(processor.process_batch(urls, progress_callback, enhance_images=request.enhance_images))
     
     return {"message": "Downloads started", "count": len(urls)}
 
