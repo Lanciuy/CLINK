@@ -1,8 +1,11 @@
 import asyncio
+import random
 from typing import List, Dict
 from playwright.async_api import async_playwright
+from playwright_stealth import Stealth
 from domain.interfaces import ISniffer
 from domain.exceptions import ExtractionFailedException, SnifferException
+from infrastructure.stealth_utils import get_random_user_agent, get_random_viewport
 
 class PlaywrightSniffer(ISniffer):
     """Tier 2: Stealth Network Interceptor (GraphQL/REST API sniffer)."""
@@ -33,13 +36,20 @@ class PlaywrightSniffer(ISniffer):
                     args=[
                         "--disable-blink-features=AutomationControlled",
                         "--autoplay-policy=no-user-gesture-required",
-                        "--mute-audio"
+                        "--mute-audio",
+                        "--disable-web-security"
                     ]
                 )
+                
+                vp = get_random_viewport()
+                ua = get_random_user_agent()
+                
                 context = await browser.new_context(
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    user_agent=ua,
+                    viewport={"width": vp["width"], "height": vp["height"]}
                 )
                 page = await context.new_page()
+                await Stealth().apply_stealth_async(page)
                 
                 # Network Interception for MP4/Video streams (Reels/Stories)
                 captured_videos = set()
@@ -57,12 +67,13 @@ class PlaywrightSniffer(ISniffer):
                 
                 # Navigate and wait for network idle
                 await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                await page.wait_for_timeout(3000)
+                # Random human-like delay between 2-4 seconds
+                await page.wait_for_timeout(random.randint(2000, 4000))
                 
                 # Simulate a click in the center of the viewport to trigger potential play-on-click
                 try:
-                    await page.mouse.click(300, 300)
-                    await page.wait_for_timeout(2000) # Give IG/JS time to render and buffer video
+                    await page.mouse.click(vp["width"] // 2, vp["height"] // 2)
+                    await page.wait_for_timeout(random.randint(1500, 2500)) # Give IG/JS time to render and buffer video
                 except:
                     pass
                 

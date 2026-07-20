@@ -5,6 +5,7 @@ import asyncio
 from typing import Callable, Optional, Dict, Any
 from domain.interfaces import IExtractorEngine
 from domain.exceptions import ExtractionFailedException, RateLimitException, LoginRequiredException
+from infrastructure.stealth_utils import get_random_user_agent
 
 class YTDLPEngine(IExtractorEngine):
     """Tier 1: Fast-Path non-rendered extractor using yt-dlp."""
@@ -26,6 +27,13 @@ class YTDLPEngine(IExtractorEngine):
             'noplaylist': not is_playlist,
             'quiet': True,
             'no_warnings': True,
+            # Stealth & Anti-Ban Options
+            'http_headers': {'User-Agent': get_random_user_agent()},
+            'extractor_args': {'youtube': ['player_client=android,web']},
+            'geo_bypass': True,
+            'sleep_interval_requests': 1,
+            'sleep_interval': 2,
+            'max_sleep_interval': 6,
         }
         
         if is_audio:
@@ -81,6 +89,13 @@ class YTDLPEngine(IExtractorEngine):
             'noplaylist': not is_playlist,
             'quiet': True,
             'no_warnings': True,
+            # Stealth & Anti-Ban Options
+            'http_headers': {'User-Agent': get_random_user_agent()},
+            'extractor_args': {'youtube': ['player_client=android,web']},
+            'geo_bypass': True,
+            'sleep_interval_requests': 1,
+            'sleep_interval': 2,
+            'max_sleep_interval': 6,
         }
         
         if cookies_path:
