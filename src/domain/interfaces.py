@@ -41,18 +41,11 @@ class IStorage(abc.ABC):
         pass
         
     @abc.abstractmethod
-    def get_cookies_path(self) -> Optional[str]:
+    def ensure_exists(self) -> None:
         pass
 
 class IEnhancer(abc.ABC):
+    """Interface for AI image/video upscaling."""
     @abc.abstractmethod
     async def enhance(self, file_path: str) -> str:
-        """
-        Enhances the quality/resolution of the given media file.
-        Returns the new file path of the enhanced media.
-        """
-        pass
-        
-    @abc.abstractmethod
-    def ensure_exists(self) -> None:
         pass
