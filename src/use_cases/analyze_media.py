@@ -3,27 +3,44 @@ import logging
 from typing import List
 from pydantic import HttpUrl
 from domain.models import AnalyzeResponse, MediaItem, MediaType
-from domain.interfaces import IExtractorEngine, ISniffer
+from domain.interfaces import IExtractorEngine, ISniffer, ICookieManager
+from domain.exceptions import LoginRequiredException
 
 class AnalyzeMediaUseCase:
     """
-    Cascades through extraction tiers (yt-dlp -> Playwright) to extract all
+    Cascades through extraction tiers (yt-dlp -> Cookies -> Playwright) to extract all
     available media items (e.g. from an Instagram carousel) without downloading.
     """
-    def __init__(self, extractor: IExtractorEngine, sniffer: ISniffer):
+    def __init__(self, extractor: IExtractorEngine, sniffer: ISniffer, cookie_manager: ICookieManager):
         self.extractor = extractor
         self.sniffer = sniffer
+        self.cookie_manager = cookie_manager
         self.logger = logging.getLogger(__name__)
 
     async def execute(self, url: HttpUrl) -> AnalyzeResponse:
         url_str = str(url)
         items: List[MediaItem] = []
         error_msg = None
+        last_error = None
+        info = None
 
         try:
             # Tier 1: yt-dlp
             self.logger.info(f"Analyzing {url_str} via Tier 1 (yt-dlp)")
             info = await self.extractor.analyze(url_str)
+        except Exception as e:
+            last_error = e
+
+        if isinstance(last_error, (LoginRequiredException, ExtractionFailedException)):
+            try:
+                self.logger.info("Tier 1 analysis failed. Falling back to Tier 3 (Cookies).")
+                info = await self.extractor.analyze(url_str, use_cookies=True)
+                last_error = None
+            except Exception as e:
+                self.logger.warning(f"Tier 3 analysis failed: {e}")
+                last_error = e
+                
+        if info:
             
             entries = info.get('entries') if 'entries' in info else [info]
             for entry in entries:
@@ -52,8 +69,8 @@ class AnalyzeMediaUseCase:
                         source_url=url_str
                     ))
                     
-        except Exception as e:
-            self.logger.warning(f"Tier 1 analysis failed: {e}. Falling back to Tier 2 (Playwright).")
+        else:
+            self.logger.warning(f"Falling back to Tier 2 (Playwright). Last error: {last_error}")
             # Tier 2: Playwright Sniffer
             try:
                 media_list = await self.sniffer.sniff_all_media(url_str)

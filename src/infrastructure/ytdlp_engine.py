@@ -58,14 +58,17 @@ class YTDLPEngine(IExtractorEngine):
             else:
                 raise ExtractionFailedException(str(e), url, 1)
 
-    async def analyze(self, url: str) -> Dict[str, Any]:
+    async def analyze(self, url: str, use_cookies: bool = False) -> Dict[str, Any]:
         """Extracts metadata without downloading. Returns the info_dict."""
         ydl_opts = {
-            'noplaylist': True,
+            'noplaylist': False, # Allow playlist/carousel extraction
             'quiet': True,
             'no_warnings': True,
         }
         
+        if use_cookies:
+            ydl_opts['cookiesfrombrowser'] = ('chrome', )
+            
         def _extract():
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)
@@ -75,5 +78,11 @@ class YTDLPEngine(IExtractorEngine):
             info = await loop.run_in_executor(None, _extract)
             return info
         except yt_dlp.utils.DownloadError as e:
-            self.logger.error(f"yt-dlp analyze failed for {url}: {e}")
-            raise ExtractionFailedException(str(e), url, 1)
+            error_msg = str(e).lower()
+            self.logger.error(f"yt-dlp analyze failed for {url}: {error_msg}")
+            if 'http error 429' in error_msg:
+                raise RateLimitException(f"Rate limit hit for {url}")
+            elif 'sign in' in error_msg or 'login' in error_msg or 'private' in error_msg:
+                raise LoginRequiredException(f"Login required for {url}")
+            else:
+                raise ExtractionFailedException(str(e), url, 1)

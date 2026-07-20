@@ -31,7 +31,7 @@ cookie_manager = LocalCookieManager()
 ffmpeg_merger = FFmpegMerger()
 
 # Use Cases
-analyze_use_case = AnalyzeMediaUseCase(ytdlp_engine, playwright_sniffer)
+analyze_use_case = AnalyzeMediaUseCase(ytdlp_engine, playwright_sniffer, cookie_manager)
 download_use_case = DownloadMediaUseCase(ytdlp_engine, playwright_sniffer, cookie_manager, ffmpeg_merger)
 processor = BatchProcessor(download_use_case, max_concurrent=5)
 ws_manager = WebSocketManager()

@@ -31,10 +31,10 @@ class DownloadMediaUseCase:
             self.logger.warning(f"Tier 1 failed: {e}")
             last_error = e
 
-        # Tier 3: Local Cookie Bridge (Triggered on login walls)
-        if isinstance(last_error, LoginRequiredException):
+        # Tier 3: Local Cookie Bridge
+        if isinstance(last_error, (LoginRequiredException, ExtractionFailedException)):
             try:
-                self.logger.info("Attempting Tier 3 (Local Cookie Bridge)")
+                self.logger.info("Tier 1 failed. Attempting Tier 3 (Local Cookie Bridge)")
                 loop = asyncio.get_running_loop()
                 return await loop.run_in_executor(None, lambda: self.extractor.extract(url, progress_hook=progress_hook, use_cookies=True))
             except Exception as e:

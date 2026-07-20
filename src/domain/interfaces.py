@@ -8,7 +8,7 @@ class IExtractorEngine(abc.ABC):
         pass
         
     @abc.abstractmethod
-    async def analyze(self, url: str) -> Dict[str, Any]:
+    async def analyze(self, url: str, use_cookies: bool = False) -> Dict[str, Any]:
         pass
 
 class ISniffer(abc.ABC):

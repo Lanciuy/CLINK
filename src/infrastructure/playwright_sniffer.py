@@ -38,71 +38,87 @@ class PlaywrightSniffer(ISniffer):
                 await page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 await page.wait_for_timeout(4000) # Give IG/JS time to render
                 
-                media_items = await page.evaluate('''() => {
-                    let results = [];
-                    // Helper to clean Instagram crop parameters
-                    function cleanIGUrl(url) {
-                        if (!url) return null;
-                        return url.replace(/\\/[cps][0-9]+[0-9x\\.]+\\//g, '/').replace(/\\/e[0-9]+\\//g, '/');
-                    }
-
-                    // 1. Video tags
-                    let videos = Array.from(document.querySelectorAll('video'));
-                    for (let video of videos) {
-                        if (video.src && !video.src.startsWith('blob:')) {
-                            results.push({url: video.src, type: 'video'});
+                media_items = []
+                for _ in range(15): # Max 15 carousel items
+                    new_items = await page.evaluate('''() => {
+                        let results = [];
+                        // Helper to clean Instagram crop parameters
+                        function cleanIGUrl(url) {
+                            if (!url) return null;
+                            return url.replace(/\\/[cps][0-9]+[0-9x\\.]+\\//g, '/').replace(/\\/e[0-9]+\\//g, '/');
                         }
-                    }
-                    
-                    // 2. Image tags
-                    let imgs = Array.from(document.querySelectorAll('img'));
-                    for (let img of imgs) {
-                        if (img.src && img.src.startsWith('data:')) continue;
+    
+                        // 1. Video tags
+                        let videos = Array.from(document.querySelectorAll('video'));
+                        for (let video of videos) {
+                            if (video.src && !video.src.startsWith('blob:')) {
+                                results.push({url: video.src, type: 'video'});
+                            }
+                        }
                         
-                        let bestImg = null;
-                        let maxWidth = 0;
-                        
-                        if (img.srcset) {
-                            let sources = img.srcset.split(',').map(s => s.trim().split(' '));
-                            for (let src of sources) {
-                                if (src.length === 2 && src[1].endsWith('w')) {
-                                    let width = parseInt(src[1].replace('w', ''));
-                                    if (width > maxWidth) {
-                                        maxWidth = width;
-                                        bestImg = src[0];
+                        // 2. Image tags
+                        let imgs = Array.from(document.querySelectorAll('img'));
+                        for (let img of imgs) {
+                            if (img.src && img.src.startsWith('data:')) continue;
+                            
+                            let bestImg = null;
+                            let maxWidth = 0;
+                            
+                            if (img.srcset) {
+                                let sources = img.srcset.split(',').map(s => s.trim().split(' '));
+                                for (let src of sources) {
+                                    if (src.length === 2 && src[1].endsWith('w')) {
+                                        let width = parseInt(src[1].replace('w', ''));
+                                        if (width > maxWidth) {
+                                            maxWidth = width;
+                                            bestImg = src[0];
+                                        }
                                     }
+                                }
+                            }
+                            
+                            if (maxWidth < 500) {
+                                let area = img.clientWidth * img.clientHeight;
+                                if (area > 40000 && img.clientWidth > 300) {
+                                    bestImg = img.src;
+                                }
+                            }
+                            
+                            if (bestImg) {
+                                let clean = cleanIGUrl(bestImg);
+                                if (!results.find(r => r.url === clean)) {
+                                    results.push({url: clean, type: 'image'});
                                 }
                             }
                         }
                         
-                        if (maxWidth < 500) {
-                            let area = img.clientWidth * img.clientHeight;
-                            if (area > 40000 && img.clientWidth > 300) {
-                                bestImg = img.src;
+                        // 3. Fallback to OG Meta tags
+                        if (results.length === 0) {
+                            let ogVideo = document.querySelector('meta[property="og:video"]');
+                            if (ogVideo && ogVideo.content) results.push({url: cleanIGUrl(ogVideo.content), type: 'video'});
+                            
+                            let ogImage = document.querySelector('meta[property="og:image"]');
+                            if (ogImage && ogImage.content && !ogImage.content.includes('119098904_143875323910363')) {
+                                results.push({url: cleanIGUrl(ogImage.content), type: 'image'});
                             }
                         }
                         
-                        if (bestImg) {
-                            let clean = cleanIGUrl(bestImg);
-                            if (!results.find(r => r.url === clean)) {
-                                results.push({url: clean, type: 'image'});
-                            }
-                        }
-                    }
+                        return results;
+                    }''')
                     
-                    // 3. Fallback to OG Meta tags
-                    if (results.length === 0) {
-                        let ogVideo = document.querySelector('meta[property="og:video"]');
-                        if (ogVideo && ogVideo.content) results.push({url: cleanIGUrl(ogVideo.content), type: 'video'});
-                        
-                        let ogImage = document.querySelector('meta[property="og:image"]');
-                        if (ogImage && ogImage.content && !ogImage.content.includes('119098904_143875323910363')) {
-                            results.push({url: cleanIGUrl(ogImage.content), type: 'image'});
-                        }
-                    }
-                    
-                    return results;
-                }''')
+                    for item in new_items:
+                        if item not in media_items:
+                            media_items.append(item)
+                            
+                    try:
+                        next_btn = await page.query_selector('button[aria-label="Next"]')
+                        if next_btn:
+                            await next_btn.click()
+                            await page.wait_for_timeout(1000)
+                        else:
+                            break
+                    except Exception:
+                        break
                 
                 await browser.close()
                 
