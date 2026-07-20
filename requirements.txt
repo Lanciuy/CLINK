@@ -4,3 +4,4 @@ playwright
 playwright-stealth
 yt-dlp
 pydantic
+websockets

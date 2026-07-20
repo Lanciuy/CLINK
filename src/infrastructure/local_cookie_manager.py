@@ -1,9 +1,10 @@
-class LocalCookieManager:
+from domain.interfaces import ICookieManager
+
+class LocalCookieManager(ICookieManager):
     """Tier 3: Browser cookie bridge for private/restricted posts."""
     
-    @staticmethod
-    def get_preferred_browser() -> str:
+    def get_cookies_for_domain(self, domain: str) -> str:
         """
-        Returns the preferred browser to extract cookies from.
+        Returns cookies for a specific domain (stub for now, returns preferred browser).
         """
         return "chrome"

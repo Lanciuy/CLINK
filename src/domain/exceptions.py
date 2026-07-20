@@ -21,3 +21,11 @@ class LoginRequiredException(DownloaderException):
 class RemuxingException(DownloaderException):
     """Raised when FFmpeg fails to merge audio and video streams."""
     pass
+
+class SnifferException(DownloaderException):
+    """Raised when the sniffer fails to extract media."""
+    pass
+
+class ConcurrencyException(DownloaderException):
+    """Raised when concurrency limits or tasks fail."""
+    pass

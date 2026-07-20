@@ -9,9 +9,28 @@ class DownloadStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
 
+class MediaType(str, Enum):
+    IMAGE = "image"
+    VIDEO = "video"
+
+class MediaItem(BaseModel):
+    id: str
+    url: str # Raw CDN URL
+    thumbnail: Optional[str] = None
+    type: MediaType
+    source_url: str
+
+class AnalyzeRequest(BaseModel):
+    urls: List[HttpUrl]
+
+class AnalyzeResponse(BaseModel):
+    source_url: str
+    items: List[MediaItem]
+    error: Optional[str] = None
+
 class DownloadRequest(BaseModel):
     url: HttpUrl
-    tier: Optional[int] = 1 # Start at Tier 1 by default
+    tier: Optional[int] = 1
 
 class BatchDownloadRequest(BaseModel):
     urls: List[HttpUrl]

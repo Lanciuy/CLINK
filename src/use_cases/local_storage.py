@@ -1,6 +1,7 @@
 import os
+from domain.interfaces import IStorage
 
-class LocalStorage:
+class LocalStorage(IStorage):
     """Handles output file naming, folder creation, and OS pathing."""
     
     def __init__(self, base_dir: str = "downloads"):
@@ -10,5 +11,5 @@ class LocalStorage:
     def get_download_path(self) -> str:
         return self.base_dir
         
-    def ensure_exists(self):
+    def ensure_exists(self) -> None:
         os.makedirs(self.base_dir, exist_ok=True)

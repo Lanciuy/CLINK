@@ -1,8 +1,9 @@
 import subprocess
 import os
+from domain.interfaces import IRemuxer
 from domain.exceptions import RemuxingException
 
-class FFmpegMerger:
+class FFmpegMerger(IRemuxer):
     """Tier 4: Lossless video/audio stream remuxer."""
     
     @staticmethod

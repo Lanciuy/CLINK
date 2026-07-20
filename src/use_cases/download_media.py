@@ -1,43 +1,54 @@
 import asyncio
-from typing import Callable, Optional
-from domain.exceptions import ExtractionFailedException, RateLimitException, LoginRequiredException
-from infrastructure.ytdlp_engine import YTDLPEngine
-from infrastructure.playwright_sniffer import PlaywrightSniffer
-from infrastructure.local_cookie_manager import LocalCookieManager
+import logging
+from typing import Callable, Optional, Dict
+from domain.exceptions import ExtractionFailedException, RateLimitException, LoginRequiredException, SnifferException, RemuxingException
+from domain.interfaces import IExtractorEngine, ISniffer, ICookieManager, IRemuxer
 
 class DownloadMediaUseCase:
     """Orchestrates the 4-Tier Fallback Cascade execution logic."""
     
-    def __init__(self, output_dir: str):
-        self.ytdlp = YTDLPEngine(output_dir)
-        self.sniffer = PlaywrightSniffer()
-        self.cookie_manager = LocalCookieManager()
+    def __init__(self, extractor: IExtractorEngine, sniffer: ISniffer, cookie_manager: ICookieManager, remuxer: IRemuxer):
+        self.extractor = extractor
+        self.sniffer = sniffer
+        self.cookie_manager = cookie_manager
+        self.remuxer = remuxer
+        self.logger = logging.getLogger(__name__)
         
-    async def execute(self, url: str, progress_hook: Optional[Callable] = None) -> str:
+    async def execute(self, url: str, progress_hook: Optional[Callable[[Dict], None]] = None) -> str:
         """
         Executes the 4-tier download strategy.
         Returns the path to the downloaded file.
         """
         last_error = None
+        self.logger.info(f"Starting cascade extraction for {url}")
+        
         # Tier 1: Fast-Path `yt-dlp`
         try:
-            return self.ytdlp.extract(url, progress_hook=progress_hook)
+            self.logger.info("Attempting Tier 1 (yt-dlp)")
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, lambda: self.extractor.extract(url, progress_hook=progress_hook))
         except (ExtractionFailedException, RateLimitException, LoginRequiredException) as e:
+            self.logger.warning(f"Tier 1 failed: {e}")
             last_error = e
 
-        # Check if login is required (Tier 3)
+        # Tier 3: Local Cookie Bridge (Triggered on login walls)
         if isinstance(last_error, LoginRequiredException):
             try:
-                # Tier 3: Local Cookie Bridge
-                return self.ytdlp.extract(url, progress_hook=progress_hook, use_cookies=True)
+                self.logger.info("Attempting Tier 3 (Local Cookie Bridge)")
+                loop = asyncio.get_running_loop()
+                return await loop.run_in_executor(None, lambda: self.extractor.extract(url, progress_hook=progress_hook, use_cookies=True))
             except Exception as e:
-                pass
+                self.logger.warning(f"Tier 3 failed: {e}")
                 
         # Tier 2: Stealth Network Interceptor `Playwright`
         try:
+            self.logger.info("Attempting Tier 2 (Playwright Sniffer)")
             sniffed_url = await self.sniffer.sniff_media_url(url)
+            self.logger.info(f"Tier 2 found raw URL: {sniffed_url}. Passing to Tier 1.")
+            
             # Use Tier 1 to download the raw CDN URL
-            return self.ytdlp.extract(sniffed_url, progress_hook=progress_hook)
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, lambda: self.extractor.extract(sniffed_url, progress_hook=progress_hook))
         except Exception as e:
-            # If all tiers fail, raise the original error or a generic one
+            self.logger.error(f"Tier 2 failed: {e}")
             raise ExtractionFailedException(f"All extraction tiers failed for {url}. Last error: {str(e)}", url, 4)

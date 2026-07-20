@@ -1,14 +1,17 @@
 import asyncio
+import logging
 from typing import List, Callable, Dict
 from use_cases.download_media import DownloadMediaUseCase
-from use_cases.local_storage import LocalStorage
+from domain.exceptions import ConcurrencyException
 
 class BatchProcessor:
     """Concurrent multi-threaded download queue manager."""
     
-    def __init__(self, storage: LocalStorage):
-        self.downloader = DownloadMediaUseCase(storage.get_download_path())
+    def __init__(self, downloader: DownloadMediaUseCase, max_concurrent: int = 5):
+        self.downloader = downloader
         self.tasks: Dict[str, asyncio.Task] = {}
+        self.semaphore = asyncio.Semaphore(max_concurrent)
+        self.logger = logging.getLogger(__name__)
         
     async def process_batch(self, urls: List[str], progress_callback: Callable):
         """
@@ -58,47 +61,41 @@ class BatchProcessor:
         await asyncio.gather(*coroutines, return_exceptions=True)
         
     async def _download_single(self, url: str, task_id: str, hook: Callable, callback: Callable):
-        try:
-            callback({
-                "id": task_id,
-                "url": url,
-                "status": "pending",
-                "progress_percentage": 0,
-                "speed_mbps": 0,
-                "eta_seconds": None,
-                "tier_used": 1
-            })
-            
-            loop = asyncio.get_running_loop()
-            file_path = await loop.run_in_executor(None, self._run_sync_download, url, hook)
-            
-            callback({
-                "id": task_id,
-                "url": url,
-                "status": "completed",
-                "progress_percentage": 100,
-                "speed_mbps": 0,
-                "eta_seconds": 0,
-                "file_path": file_path,
-                "tier_used": 1
-            })
-            
-        except Exception as e:
-            callback({
-                "id": task_id,
-                "url": url,
-                "status": "failed",
-                "progress_percentage": 0,
-                "speed_mbps": 0,
-                "eta_seconds": 0,
-                "error_message": str(e),
-                "tier_used": 1
-            })
+        async with self.semaphore:
+            try:
+                callback({
+                    "id": task_id,
+                    "url": url,
+                    "status": "pending",
+                    "progress_percentage": 0,
+                    "speed_mbps": 0,
+                    "eta_seconds": None,
+                    "tier_used": 1
+                })
+                
+                file_path = await self.downloader.execute(url, progress_hook=hook)
+                
+                callback({
+                    "id": task_id,
+                    "url": url,
+                    "status": "completed",
+                    "progress_percentage": 100,
+                    "speed_mbps": 0,
+                    "eta_seconds": 0,
+                    "file_path": file_path,
+                    "tier_used": 1
+                })
+                
+            except Exception as e:
+                self.logger.error(f"Download task {task_id} failed: {e}")
+                callback({
+                    "id": task_id,
+                    "url": url,
+                    "status": "failed",
+                    "progress_percentage": 0,
+                    "speed_mbps": 0,
+                    "eta_seconds": 0,
+                    "error_message": str(e),
+                    "tier_used": 1
+                })
 
-    def _run_sync_download(self, url, hook):
-        new_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(new_loop)
-        try:
-            return new_loop.run_until_complete(self.downloader.execute(url, progress_hook=hook))
-        finally:
-            new_loop.close()

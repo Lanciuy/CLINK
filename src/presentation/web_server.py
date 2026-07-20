@@ -1,23 +1,33 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import HttpUrl
+from pydantic import BaseModel, HttpUrl
+from typing import List
 import os
-
-from domain.models import BatchDownloadRequest
-from use_cases.local_storage import LocalStorage
-from use_cases.batch_processor import BatchProcessor
-from infrastructure.os_system_adapter import OSSystemAdapter
-from presentation.websocket_manager import WebSocketManager
 import asyncio
 
-app = FastAPI(title="Local Media Downloader Engine")
+from domain.models import DownloadRequest, BatchDownloadRequest, AnalyzeRequest, AnalyzeResponse
+from use_cases.local_storage import LocalStorage
+from use_cases.batch_processor import BatchProcessor
+from use_cases.analyze_media import AnalyzeMediaUseCase
+from infrastructure.ytdlp_engine import YTDLPEngine
+from infrastructure.playwright_sniffer import PlaywrightSniffer
+from infrastructure.ffmpeg_merger import FFmpegMerger
+from infrastructure.os_system_adapter import OSSystemAdapter
+from presentation.websocket_manager import WebSocketManager
+
+app = FastAPI(title="Clink Media Downloader")
 
 # Setup dependencies
 storage = LocalStorage(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "downloads"))
+os_adapter = OSSystemAdapter()
+ytdlp_engine = YTDLPEngine(storage.get_download_path())
+playwright_sniffer = PlaywrightSniffer()
+analyze_use_case = AnalyzeMediaUseCase(ytdlp_engine, playwright_sniffer)
+analyze_use_case = AnalyzeMediaUseCase(ytdlp_engine, playwright_sniffer)
+
 processor = BatchProcessor(storage)
 ws_manager = WebSocketManager()
-os_adapter = OSSystemAdapter()
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -26,6 +36,15 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 @app.get("/")
 async def root():
     return FileResponse(os.path.join(static_dir, "index.html"))
+
+@app.post("/api/analyze", response_model=AnalyzeResponse)
+async def analyze_url(request: AnalyzeRequest):
+    try:
+        if not request.urls:
+            raise Exception("No URLs provided")
+        return await analyze_use_case.execute(request.urls[0])
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/download")
 async def start_downloads(request: BatchDownloadRequest):
