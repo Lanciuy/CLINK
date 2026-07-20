@@ -82,25 +82,65 @@ class RealESRGANEngine(IEnhancer):
             
             # If successful, replace original with enhanced
             if os.path.exists(result_path):
-                # Apply Unsharp Mask to restore micro-contrast (pores/hair)
                 try:
-                    from PIL import Image, ImageFilter
-                    self.logger.info("Applying Unsharp Mask for facial/texture restoration...")
-                    with Image.open(result_path) as img:
-                        # Convert to RGB to avoid alpha channel issues with some filters
-                        if img.mode != 'RGB':
-                            img = img.convert('RGB')
-                        # Radius 2, Percent 150, Threshold 3 is great for skin/hair
-                        enhanced_img = img.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=3))
-                        enhanced_img.save(result_path, quality=95)
+                    import cv2
+                    import numpy as np
+                    
+                    self.logger.info("Applying Frequency Separation for photorealistic skin/texture restoration...")
+                    
+                    # Load AI Upscaled image
+                    ai_img = cv2.imread(result_path, cv2.IMREAD_COLOR)
+                    
+                    # Load Original image and upscale it to match AI using Lanczos (preserves noise and pores, but blurry)
+                    orig_img = cv2.imread(file_path, cv2.IMREAD_COLOR)
+                    h, w = ai_img.shape[:2]
+                    orig_up = cv2.resize(orig_img, (w, h), interpolation=cv2.INTER_LANCZOS4)
+                    
+                    # Extract High Frequency (Texture) from Original
+                    blurred_orig = cv2.GaussianBlur(orig_up, (0, 0), 3.0)
+                    high_pass = np.int16(orig_up) - np.int16(blurred_orig)
+                    
+                    # Blend High Frequency into AI Image (restores exact camera texture)
+                    blended = np.clip(np.int16(ai_img) + high_pass, 0, 255).astype(np.uint8)
+                    
+                    # Generate 4K variant
+                    max_4k = 3840
+                    img_4k = blended
+                    if max(h, w) > max_4k:
+                        scale = max_4k / max(h, w)
+                        img_4k = cv2.resize(blended, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+                    
+                    # Generate 2K variant
+                    max_2k = 2560
+                    img_2k = blended
+                    if max(h, w) > max_2k:
+                        scale = max_2k / max(h, w)
+                        img_2k = cv2.resize(blended, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+                        
+                    base = file_path.rsplit('.', 1)[0]
+                    path_4k = base + "_Enhanced_4K.png"
+                    path_2k = base + "_Enhanced_2K.png"
+                    
+                    cv2.imwrite(path_4k, img_4k)
+                    cv2.imwrite(path_2k, img_2k)
+                    
+                    # Cleanup
+                    os.remove(file_path)
+                    os.remove(result_path)
+                    
+                    return path_4k
+                    
                 except ImportError:
-                    self.logger.warning("Pillow not installed. Skipping Unsharp Mask.")
+                    self.logger.warning("OpenCV not installed. Skipping Frequency Separation.")
                 except Exception as ex:
                     self.logger.error(f"Post-processing failed: {ex}")
                     
-                os.remove(file_path)
+                # Fallback cleanup if OpenCV fails
+                if os.path.exists(file_path):
+                    os.remove(file_path)
                 final_path = file_path.rsplit('.', 1)[0] + ".png"
-                os.rename(result_path, final_path)
+                if os.path.exists(result_path):
+                    os.replace(result_path, final_path)
                 return final_path
                 
         except Exception as e:
