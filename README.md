@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.png" alt="CLINK Banner" width="100%">
+<img src="assets/clink-banner-v2.png" alt="CLINK Banner" width="100%">
 
 # 🌌 CLINK
 
