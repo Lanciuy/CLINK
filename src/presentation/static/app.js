@@ -83,12 +83,12 @@ downloadBtn.addEventListener('click', async () => {
 
 function getStatusColor(status) {
     switch(status) {
-        case 'pending': return 'bg-yellow-500/20 text-yellow-500';
-        case 'downloading': return 'bg-brand-500/20 text-brand-400';
-        case 'processing': return 'bg-purple-500/20 text-purple-400';
-        case 'completed': return 'bg-green-500/20 text-green-400';
-        case 'failed': return 'bg-red-500/20 text-red-400';
-        default: return 'bg-white/10 text-white';
+        case 'pending': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
+        case 'downloading': return 'bg-brand-500/10 text-brand-400 border-brand-500/20 pulse-ring';
+        case 'processing': return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+        case 'completed': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+        case 'failed': return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+        default: return 'bg-white/5 text-white/50 border-white/10';
     }
 }
 
@@ -113,7 +113,7 @@ function updateQueueItem(data) {
             el.id = `item-${data.id}`;
             el.dataset.id = data.id;
             el.dataset.url = data.url;
-            el.className = `glass-item rounded-xl p-4 border border-white/5 animate-slide-in flex flex-col gap-3 ${data.status === 'pending' ? 'queue-item-pending' : ''}`;
+            el.className = `glass-item rounded-2xl p-5 animate-slide-in flex flex-col gap-4 relative overflow-hidden group ${data.status === 'pending' ? 'queue-item-pending' : ''}`;
             queueList.insertBefore(el, queueList.firstChild);
         }
     }
@@ -121,32 +121,35 @@ function updateQueueItem(data) {
     activeDownloads.set(data.id, data);
     updateCount();
 
-    const shortUrl = data.url.length > 50 ? data.url.substring(0, 50) + '...' : data.url;
+    const shortUrl = data.url.length > 60 ? data.url.substring(0, 60) + '...' : data.url;
     const isError = data.status === 'failed';
     const isDone = data.status === 'completed';
     const isWorking = data.status === 'downloading' || data.status === 'processing';
 
     el.innerHTML = `
-        <div class="flex justify-between items-start gap-4">
+        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.02] to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+        <div class="flex justify-between items-start gap-5 relative z-10">
             <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-white/90 truncate" title="${data.url}">${shortUrl}</p>
-                <div class="flex items-center gap-3 mt-1 text-xs text-white/50">
-                    <span class="flex items-center gap-1 ${getStatusColor(data.status)} px-2 py-0.5 rounded-full capitalize">
-                        ${isWorking ? '<svg class="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>' : ''}
+                <p class="text-base font-semibold text-white/95 truncate" title="${data.url}">${shortUrl}</p>
+                <div class="flex flex-wrap items-center gap-3 mt-2 text-xs font-medium text-white/50">
+                    <span class="flex items-center gap-1.5 ${getStatusColor(data.status)} px-2.5 py-1 rounded-md border capitalize transition-colors">
+                        ${isWorking ? '<svg class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>' : ''}
                         ${data.status}
                     </span>
-                    ${data.speed_mbps ? `<span>${data.speed_mbps.toFixed(2)} MB/s</span>` : ''}
-                    ${data.eta_seconds ? `<span>ETA: ${data.eta_seconds}s</span>` : ''}
-                    <span title="Extraction Tier">T${data.tier_used || 1}</span>
+                    ${data.speed_mbps ? `<span class="bg-white/5 px-2 py-1 rounded-md flex items-center gap-1"><svg class="w-3 h-3 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>${data.speed_mbps.toFixed(2)} MB/s</span>` : ''}
+                    ${data.eta_seconds ? `<span class="bg-white/5 px-2 py-1 rounded-md flex items-center gap-1"><svg class="w-3 h-3 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>${data.eta_seconds}s left</span>` : ''}
+                    <span class="bg-white/5 px-2 py-1 rounded-md text-brand-400" title="Extraction Tier">T${data.tier_used || 1} Engine</span>
                 </div>
-                ${isError && data.error_message ? `<p class="mt-2 text-xs text-red-400 bg-red-400/10 p-2 rounded-md">${data.error_message}</p>` : ''}
-                ${isDone && data.file_path ? `<p class="mt-2 text-xs text-green-400 truncate opacity-70">Saved to: ${data.file_path.split('\\\\').pop().split('/').pop()}</p>` : ''}
+                ${isError && data.error_message ? `<p class="mt-3 text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg">${data.error_message}</p>` : ''}
+                ${isDone && data.file_path ? `<p class="mt-3 text-xs text-emerald-400 truncate opacity-80 flex items-center gap-1.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Saved to: ${data.file_path.split('\\\\').pop().split('/').pop()}</p>` : ''}
             </div>
-            ${isWorking ? `<div class="font-mono text-sm font-bold text-brand-400">${data.progress_percentage.toFixed(1)}%</div>` : ''}
+            ${isWorking ? `<div class="font-mono text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-purple-400 drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]">${data.progress_percentage.toFixed(1)}%</div>` : ''}
         </div>
         ${isWorking ? `
-        <div class="w-full bg-dark-900 rounded-full h-1.5 overflow-hidden">
-            <div class="bg-brand-500 h-1.5 rounded-full transition-all duration-300 ease-out" style="width: ${data.progress_percentage}%"></div>
+        <div class="w-full bg-dark-900/50 rounded-full h-2 mt-2 overflow-hidden border border-white/5">
+            <div class="bg-gradient-to-r from-brand-500 to-purple-500 h-2 rounded-full transition-all duration-300 ease-out relative" style="width: ${data.progress_percentage}%">
+                <div class="absolute inset-0 bg-white/20 w-full animate-[slideRight_1s_linear_infinite]" style="transform: skewX(-20deg);"></div>
+            </div>
         </div>` : ''}
     `;
 }
