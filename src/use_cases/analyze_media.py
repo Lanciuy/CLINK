@@ -4,7 +4,7 @@ from typing import List
 from pydantic import HttpUrl
 from domain.models import AnalyzeResponse, MediaItem, MediaType
 from domain.interfaces import IExtractorEngine, ISniffer, ICookieManager
-from domain.exceptions import LoginRequiredException
+from domain.exceptions import LoginRequiredException, ExtractionFailedException
 
 class AnalyzeMediaUseCase:
     """
