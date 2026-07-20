@@ -10,9 +10,11 @@ from domain.models import DownloadRequest, BatchDownloadRequest, AnalyzeRequest,
 from use_cases.local_storage import LocalStorage
 from use_cases.batch_processor import BatchProcessor
 from use_cases.analyze_media import AnalyzeMediaUseCase
+from use_cases.download_media import DownloadMediaUseCase
 from infrastructure.ytdlp_engine import YTDLPEngine
 from infrastructure.playwright_sniffer import PlaywrightSniffer
 from infrastructure.ffmpeg_merger import FFmpegMerger
+from infrastructure.local_cookie_manager import LocalCookieManager
 from infrastructure.os_system_adapter import OSSystemAdapter
 from presentation.websocket_manager import WebSocketManager
 
@@ -21,12 +23,17 @@ app = FastAPI(title="Clink Media Downloader")
 # Setup dependencies
 storage = LocalStorage(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "downloads"))
 os_adapter = OSSystemAdapter()
+
+# Infrastructure Adapters (Tier 1 to 4)
 ytdlp_engine = YTDLPEngine(storage.get_download_path())
 playwright_sniffer = PlaywrightSniffer()
-analyze_use_case = AnalyzeMediaUseCase(ytdlp_engine, playwright_sniffer)
-analyze_use_case = AnalyzeMediaUseCase(ytdlp_engine, playwright_sniffer)
+cookie_manager = LocalCookieManager()
+ffmpeg_merger = FFmpegMerger()
 
-processor = BatchProcessor(storage)
+# Use Cases
+analyze_use_case = AnalyzeMediaUseCase(ytdlp_engine, playwright_sniffer)
+download_use_case = DownloadMediaUseCase(ytdlp_engine, playwright_sniffer, cookie_manager, ffmpeg_merger)
+processor = BatchProcessor(download_use_case, max_concurrent=5)
 ws_manager = WebSocketManager()
 
 # Mount static files
