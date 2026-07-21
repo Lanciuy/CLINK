@@ -17,7 +17,7 @@ class AnalyzeMediaUseCase:
         self.cookie_manager = cookie_manager
         self.logger = logging.getLogger(__name__)
 
-    async def execute(self, url: HttpUrl, is_playlist: bool = False) -> AnalyzeResponse:
+    async def execute(self, url: HttpUrl, format_type: str = "video", is_playlist: bool = False, platform: str = "auto", media_filter: str = "all") -> AnalyzeResponse:
         url_str = str(url)
         cookies_path = self.cookie_manager.get_cookies_path()
         items: List[MediaItem] = []
@@ -87,4 +87,11 @@ class AnalyzeMediaUseCase:
                 self.logger.error(f"Tier 2 analysis failed: {ex}")
                 error_msg = f"Failed to extract media: {str(ex)}"
 
+        # Apply Platform Specific Filters
+        if platform == "instagram":
+            if media_filter == "reels":
+                items = [item for item in items if item.type == MediaType.VIDEO]
+            elif media_filter == "images":
+                items = [item for item in items if item.type == MediaType.IMAGE]
+        
         return AnalyzeResponse(source_url=url_str, items=items, error=error_msg)

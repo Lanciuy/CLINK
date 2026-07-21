@@ -90,7 +90,9 @@ async def start_downloads(request: BatchDownloadRequest):
         enhance_images=request.enhance_images,
         color_boost=request.color_boost,
         format_type=request.format_type,
-        is_playlist=request.is_playlist
+        is_playlist=request.is_playlist,
+        platform=request.platform,
+        media_filter=request.media_filter
     ))
     
     return {"message": "Downloads started", "count": len(urls)}

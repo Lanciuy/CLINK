@@ -13,7 +13,7 @@ class BatchProcessor:
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.logger = logging.getLogger(__name__)
         
-    async def process_batch(self, urls: List[str], progress_callback: Callable[[Dict], None], enhance_images: bool = False, color_boost: bool = False, format_type: str = "video", is_playlist: bool = False):
+    async def process_batch(self, urls: List[str], progress_callback: Callable[[Dict], None], enhance_images: bool = False, color_boost: bool = False, format_type: str = "video", is_playlist: bool = False, platform: str = "auto", media_filter: str = "all"):
         """
         Processes a list of URLs concurrently.
         """
@@ -53,14 +53,14 @@ class BatchProcessor:
                         "tier_used": 1
                     })
                     
-            coro = self._download_single(url, task_id, hook, progress_callback, enhance_images, color_boost, format_type, is_playlist)
+            coro = self._download_single(url, task_id, hook, progress_callback, enhance_images, color_boost, format_type, is_playlist, platform, media_filter)
             task = asyncio.create_task(coro)
             self.tasks[task_id] = task
             coroutines.append(task)
             
         await asyncio.gather(*coroutines, return_exceptions=True)
         
-    async def _download_single(self, url: str, task_id: str, hook: Callable, callback: Callable, enhance_images: bool, color_boost: bool, format_type: str, is_playlist: bool):
+    async def _download_single(self, url: str, task_id: str, hook: Callable, callback: Callable, enhance_images: bool, color_boost: bool, format_type: str, is_playlist: bool, platform: str, media_filter: str):
         async with self.semaphore:
             try:
                 callback({
@@ -79,7 +79,9 @@ class BatchProcessor:
                     enhance_images=enhance_images,
                     color_boost=color_boost,
                     format_type=format_type,
-                    is_playlist=is_playlist
+                    is_playlist=is_playlist,
+                    platform=platform,
+                    media_filter=media_filter
                 )
                 
                 callback({

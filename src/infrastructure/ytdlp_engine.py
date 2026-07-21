@@ -14,7 +14,7 @@ class YTDLPEngine(IExtractorEngine):
         self.output_dir = output_dir
         self.logger = logging.getLogger(__name__)
 
-    def extract(self, url: str, progress_hook: Optional[Callable[[Dict], None]] = None, use_cookies: bool = False, cookies_path: Optional[str] = None, format_type: str = "video", is_playlist: bool = False) -> str:
+    def extract(self, url: str, progress_hook: Optional[Callable[[Dict], None]] = None, use_cookies: bool = False, cookies_path: Optional[str] = None, format_type: str = "video", is_playlist: bool = False, platform: str = "auto", media_filter: str = "all") -> str:
         """
         Extracts media from URL.
         Returns the path to the downloaded file.
@@ -54,6 +54,23 @@ class YTDLPEngine(IExtractorEngine):
         if progress_hook:
             ydl_opts['progress_hooks'] = [progress_hook]
 
+        # Apply Platform Specific Filters
+        if platform == "instagram":
+            def ig_filter(info, *, incomplete):
+                # info is the dict of the current media
+                # Determine type based on extension or vcodec
+                ext = info.get('ext', '')
+                vcodec = info.get('vcodec')
+                is_image = ext in ['jpg', 'jpeg', 'png', 'webp'] or vcodec == 'none'
+                
+                if media_filter == "reels" and is_image:
+                    return "Skipping image (Reels/Videos only requested)"
+                if media_filter == "images" and not is_image:
+                    return "Skipping video (Images only requested)"
+                return None # None means accept
+            
+            ydl_opts['match_filter'] = ig_filter
+
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info_dict = ydl.extract_info(url, download=True)
@@ -83,7 +100,7 @@ class YTDLPEngine(IExtractorEngine):
             else:
                 raise ExtractionFailedException(str(e), url, 1)
 
-    async def analyze(self, url: str, use_cookies: bool = False, cookies_path: Optional[str] = None, is_playlist: bool = False) -> Dict[str, Any]:
+    async def analyze(self, url: str, use_cookies: bool = False, cookies_path: Optional[str] = None, is_playlist: bool = False, platform: str = "auto", media_filter: str = "all") -> Dict[str, Any]:
         """Extracts metadata without downloading. Returns the info_dict."""
         ydl_opts = {
             'noplaylist': not is_playlist,

@@ -4,11 +4,11 @@ from typing import Callable, Optional, Dict, List, Any
 class IExtractorEngine(abc.ABC):
     """Tier 1 interface for fast-path media extraction."""
     @abc.abstractmethod
-    def extract(self, url: str, progress_hook: Optional[Callable[[Dict], None]] = None, use_cookies: bool = False, cookies_path: Optional[str] = None, format_type: str = "video", is_playlist: bool = False) -> str:
+    def extract(self, url: str, progress_hook: Optional[Callable[[Dict], None]] = None, use_cookies: bool = False, cookies_path: Optional[str] = None, format_type: str = "video", is_playlist: bool = False, platform: str = "auto", media_filter: str = "all") -> str:
         pass
         
     @abc.abstractmethod
-    async def analyze(self, url: str, use_cookies: bool = False, cookies_path: Optional[str] = None, is_playlist: bool = False) -> Dict[str, Any]:
+    async def analyze(self, url: str, use_cookies: bool = False, cookies_path: Optional[str] = None, is_playlist: bool = False, platform: str = "auto", media_filter: str = "all") -> Dict[str, Any]:
         pass
 
 class ISniffer(abc.ABC):

@@ -71,6 +71,56 @@ if (saveCookiesBtn) {
 let activeDownloads = new Map();
 let extractedMediaItems = [];
 let selectedUrls = new Set();
+let currentPlatform = 'auto'; // auto, youtube, instagram, tiktok, x
+
+// Platform Selector Logic
+const platformBtns = document.querySelectorAll('.platform-btn');
+const formatSection = document.getElementById('formatSection');
+const igFilterSection = document.getElementById('igFilterSection');
+const ytFilterSection = document.getElementById('ytFilterSection');
+const igMediaFilter = document.getElementById('igMediaFilter');
+
+platformBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        // Update active class
+        platformBtns.forEach(b => b.classList.remove('active', 'border-brand-500', 'bg-brand-500/20', 'text-brand-300'));
+        platformBtns.forEach(b => b.classList.add('border-white/5', 'bg-white/5', 'text-white/50'));
+        
+        btn.classList.remove('border-white/5', 'bg-white/5', 'text-white/50');
+        btn.classList.add('active', 'border-brand-500', 'bg-brand-500/20', 'text-brand-300');
+        
+        currentPlatform = btn.getAttribute('data-platform');
+        
+        // Update URL Input Placeholder
+        if (currentPlatform === 'auto') urlInput.placeholder = "Paste any supported URL here...";
+        else if (currentPlatform === 'youtube') urlInput.placeholder = "Paste YouTube Video or Playlist URLs here...";
+        else if (currentPlatform === 'instagram') urlInput.placeholder = "Paste Instagram Post or Profile URLs here...";
+        else if (currentPlatform === 'tiktok') urlInput.placeholder = "Paste TikTok Video URLs here...";
+        else if (currentPlatform === 'x') urlInput.placeholder = "Paste X/Twitter Post URLs here...";
+        
+        // Update Advanced Settings UI
+        if (currentPlatform === 'instagram') {
+            formatSection.classList.add('hidden');
+            ytFilterSection.classList.add('hidden');
+            igFilterSection.classList.remove('hidden');
+            igFilterSection.classList.add('flex');
+        } else if (currentPlatform === 'youtube') {
+            igFilterSection.classList.add('hidden');
+            formatSection.classList.remove('hidden');
+            ytFilterSection.classList.remove('hidden');
+            ytFilterSection.classList.add('flex');
+        } else if (currentPlatform === 'tiktok') {
+            igFilterSection.classList.add('hidden');
+            ytFilterSection.classList.add('hidden');
+            formatSection.classList.add('hidden');
+        } else {
+            // Auto or X
+            igFilterSection.classList.add('hidden');
+            ytFilterSection.classList.add('hidden');
+            formatSection.classList.remove('hidden');
+        }
+    });
+});
 
 // Establish WebSocket connection
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -172,8 +222,10 @@ downloadSelectedBtn.onclick = async () => {
                 urls: urlsToDownload,
                 enhance_images: false,
                 color_boost: false,
-                format_type: formatSelect ? formatSelect.value : "video",
-                is_playlist: playlistToggle ? playlistToggle.checked : false
+                format_type: formatSelect && !formatSection.classList.contains('hidden') ? formatSelect.value : "video",
+                is_playlist: playlistToggle && !ytFilterSection.classList.contains('hidden') ? playlistToggle.checked : false,
+                platform: currentPlatform,
+                media_filter: igMediaFilter && !igFilterSection.classList.contains('hidden') ? igMediaFilter.value : "all"
             })
         });
         
@@ -236,8 +288,10 @@ confirmAiBtn.onclick = async () => {
                 urls: urlsToDownload,
                 enhance_images: true, // TRIGGER AI
                 color_boost: aiColorBoostToggle ? aiColorBoostToggle.checked : false,
-                format_type: formatSelect ? formatSelect.value : "video",
-                is_playlist: playlistToggle ? playlistToggle.checked : false
+                format_type: formatSelect && !formatSection.classList.contains('hidden') ? formatSelect.value : "video",
+                is_playlist: playlistToggle && !ytFilterSection.classList.contains('hidden') ? playlistToggle.checked : false,
+                platform: currentPlatform,
+                media_filter: igMediaFilter && !igFilterSection.classList.contains('hidden') ? igMediaFilter.value : "all"
             })
         });
         
@@ -259,9 +313,26 @@ downloadBtn.addEventListener('click', async () => {
     const text = urlInput.value.trim();
     if (!text) return;
 
-    const urls = text.split('\n')
+    let urls = text.split('\n')
         .map(u => u.trim())
         .filter(u => /^https?:\/\//i.test(u));
+
+    // Platform validation
+    if (currentPlatform !== 'auto') {
+        urls = urls.filter(u => {
+            const domain = new URL(u).hostname.toLowerCase();
+            if (currentPlatform === 'youtube' && !domain.includes('youtube.com') && !domain.includes('youtu.be')) return false;
+            if (currentPlatform === 'instagram' && !domain.includes('instagram.com')) return false;
+            if (currentPlatform === 'tiktok' && !domain.includes('tiktok.com')) return false;
+            if (currentPlatform === 'x' && !domain.includes('x.com') && !domain.includes('twitter.com')) return false;
+            return true;
+        });
+        
+        if (urls.length === 0) {
+            showToast(`No valid ${currentPlatform} URLs found.`, 'error');
+            return;
+        }
+    }
 
     if (urls.length === 0) return;
 
@@ -275,8 +346,10 @@ downloadBtn.addEventListener('click', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 urls,
-                format_type: formatSelect ? formatSelect.value : "video",
-                is_playlist: playlistToggle ? playlistToggle.checked : false
+                format_type: formatSelect && !formatSection.classList.contains('hidden') ? formatSelect.value : "video",
+                is_playlist: playlistToggle && !ytFilterSection.classList.contains('hidden') ? playlistToggle.checked : false,
+                platform: currentPlatform,
+                media_filter: igMediaFilter && !igFilterSection.classList.contains('hidden') ? igMediaFilter.value : "all"
             }) // Sending the list of urls (backend currently only processes the first)
         });
         

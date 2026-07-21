@@ -24,6 +24,8 @@ class AnalyzeRequest(BaseModel):
     urls: List[HttpUrl]
     format_type: str = "video"
     is_playlist: bool = False
+    platform: str = "auto"
+    media_filter: str = "all"
 
 class AnalyzeResponse(BaseModel):
     source_url: str
@@ -40,6 +42,8 @@ class BatchDownloadRequest(BaseModel):
     color_boost: bool = False
     format_type: str = "video"
     is_playlist: bool = False
+    platform: str = "auto"
+    media_filter: str = "all"
 
 class CookieSaveRequest(BaseModel):
     cookie_content: str
