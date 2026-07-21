@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from typing import Callable, Optional, Dict
 from domain.exceptions import ExtractionFailedException, RateLimitException, LoginRequiredException, SnifferException, RemuxingException
 from domain.interfaces import IExtractorEngine, ISniffer, ICookieManager, IRemuxer, IEnhancer
@@ -64,6 +65,12 @@ class DownloadMediaUseCase:
 
         if enhance_images and self.enhancer and file_path:
             self.logger.info(f"Enhancing downloaded image: {file_path}")
+            raw_path = file_path
             file_path = await self.enhancer.enhance(file_path, output_dir=self.enhanced_dir, color_boost=color_boost)
+            try:
+                if file_path != raw_path and os.path.exists(raw_path):
+                    os.remove(raw_path)
+            except Exception as e:
+                self.logger.warning(f"Failed to delete raw image after enhancement: {e}")
             
         return file_path
