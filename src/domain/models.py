@@ -37,6 +37,7 @@ class DownloadRequest(BaseModel):
 class BatchDownloadRequest(BaseModel):
     urls: List[HttpUrl]
     enhance_images: bool = False
+    color_boost: bool = False
     format_type: str = "video"
     is_playlist: bool = False
 

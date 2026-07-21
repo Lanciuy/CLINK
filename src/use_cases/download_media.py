@@ -7,15 +7,16 @@ from domain.interfaces import IExtractorEngine, ISniffer, ICookieManager, IRemux
 class DownloadMediaUseCase:
     """Orchestrates the 4-Tier Fallback Cascade execution logic."""
     
-    def __init__(self, extractor: IExtractorEngine, sniffer: ISniffer, cookie_manager: ICookieManager, remuxer: IRemuxer, enhancer: IEnhancer = None):
+    def __init__(self, extractor: IExtractorEngine, sniffer: ISniffer, cookie_manager: ICookieManager, remuxer: IRemuxer, enhancer: IEnhancer = None, enhanced_dir: str = None):
         self.extractor = extractor
         self.sniffer = sniffer
         self.cookie_manager = cookie_manager
         self.remuxer = remuxer
         self.enhancer = enhancer
+        self.enhanced_dir = enhanced_dir
         self.logger = logging.getLogger(__name__)
         
-    async def execute(self, url: str, progress_callback: Callable[[Dict], None], enhance_images: bool = False, format_type: str = "video", is_playlist: bool = False) -> str:
+    async def execute(self, url: str, progress_callback: Callable[[Dict], None], enhance_images: bool = False, color_boost: bool = False, format_type: str = "video", is_playlist: bool = False) -> str:
         """
         Coordinates the multi-tier extraction process for a single item.
         Returns the path to the downloaded file.
@@ -62,6 +63,6 @@ class DownloadMediaUseCase:
 
         if enhance_images and self.enhancer and file_path:
             self.logger.info(f"Enhancing downloaded image: {file_path}")
-            file_path = await self.enhancer.enhance(file_path)
+            file_path = await self.enhancer.enhance(file_path, output_dir=self.enhanced_dir, color_boost=color_boost)
             
         return file_path

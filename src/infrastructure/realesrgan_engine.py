@@ -35,9 +35,9 @@ class RealESRGANEngine(IEnhancer):
         except Exception as e:
             self.logger.error(f"Failed to install Real-ESRGAN: {e}")
 
-    async def enhance(self, file_path: str) -> str:
+    async def enhance(self, file_path: str, output_dir: str = None, color_boost: bool = False) -> str:
         """
-        Runs Real-ESRGAN on the image file and replaces it.
+        Runs Real-ESRGAN on the image file and creates an enhanced version.
         """
         if not os.path.exists(self.exe_path):
             self.logger.warning("Enhancer binary missing, skipping enhancement.")
@@ -49,7 +49,7 @@ class RealESRGANEngine(IEnhancer):
             self.logger.info(f"Skipping enhancement for non-image file: {file_path}")
             return file_path
 
-        out_path = file_path.rsplit('.', 1)[0] + "_enhanced.png"
+        out_path = file_path.rsplit('.', 1)[0] + "_enhanced_tmp.png"
         
         # Build command
         # -i input, -o output, -n model (realesrgan-x4plus is default), -s scale (4)
@@ -80,28 +80,31 @@ class RealESRGANEngine(IEnhancer):
         try:
             result_path = await loop.run_in_executor(None, _run)
             
-            # If successful, replace original with enhanced
+            # If successful, process with OpenCV
             if os.path.exists(result_path):
                 try:
                     import cv2
                     import numpy as np
                     
-                    self.logger.info("Applying Frequency Separation for photorealistic skin/texture restoration...")
+                    self.logger.info("Applying GOD-TIER Pipeline: HDR CLAHE + Bilateral Smoothing + LAB Color Match + Texture Injector...")
                     
-                    # Load AI Upscaled image
-                    ai_img = cv2.imread(result_path, cv2.IMREAD_COLOR)
+                    # Load AI Upscaled image (support Unicode paths on Windows)
+                    ai_img = cv2.imdecode(np.fromfile(result_path, dtype=np.uint8), cv2.IMREAD_COLOR)
                     
-                    # Load Original image and upscale it to match AI using Lanczos (preserves noise and pores, but blurry)
-                    orig_img = cv2.imread(file_path, cv2.IMREAD_COLOR)
+                    # Load Original image and upscale it to match AI using Lanczos
+                    orig_img = cv2.imdecode(np.fromfile(file_path, dtype=np.uint8), cv2.IMREAD_COLOR)
+                    
+                    if ai_img is None or orig_img is None:
+                        raise ValueError(f"Failed to load images for post-processing. Paths might be invalid: {file_path}")
+                        
                     h, w = ai_img.shape[:2]
                     orig_up = cv2.resize(orig_img, (w, h), interpolation=cv2.INTER_LANCZOS4)
                     
-                    # Extract High Frequency (Texture) from Original
-                    blurred_orig = cv2.GaussianBlur(orig_up, (0, 0), 3.0)
-                    high_pass = np.int16(orig_up) - np.int16(blurred_orig)
+                    # Use the modular God-Tier Cosplay v1 preset
+                    from src.infrastructure.presets.god_tier_cosplay_v1 import apply_preset
                     
-                    # Blend High Frequency into AI Image (restores exact camera texture)
-                    blended = np.clip(np.int16(ai_img) + high_pass, 0, 255).astype(np.uint8)
+                    self.logger.info("Applying GOD-TIER Pipeline Preset: God-Tier Cosplay Ultra-HD v1")
+                    blended = apply_preset(ai_img, orig_img, color_boost=color_boost)
                     
                     # Generate 4K variant
                     max_4k = 3840
@@ -117,16 +120,27 @@ class RealESRGANEngine(IEnhancer):
                         scale = max_2k / max(h, w)
                         img_2k = cv2.resize(blended, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
                         
-                    base = file_path.rsplit('.', 1)[0]
-                    path_4k = base + "_Enhanced_4K.png"
-                    path_2k = base + "_Enhanced_2K.png"
+                    # Generate 1080p variant
+                    max_1080p = 1920
+                    img_1080p = blended
+                    if max(h, w) > max_1080p:
+                        scale = max_1080p / max(h, w)
+                        img_1080p = cv2.resize(blended, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+                        
+                    # Determine save path based on output_dir
+                    file_name = os.path.basename(file_path).rsplit('.', 1)[0]
+                    target_dir = output_dir if output_dir else os.path.dirname(file_path)
+                    os.makedirs(target_dir, exist_ok=True)
                     
-                    cv2.imwrite(path_4k, img_4k)
-                    cv2.imwrite(path_2k, img_2k)
+                    path_4k = os.path.join(target_dir, file_name + "_Enhanced_4K.png")
+                    path_2k = os.path.join(target_dir, file_name + "_Enhanced_2K.png")
                     
-                    # Cleanup
-                    os.remove(file_path)
-                    os.remove(result_path)
+                    cv2.imencode('.png', img_4k)[1].tofile(path_4k)
+                    cv2.imencode('.png', img_2k)[1].tofile(path_2k)
+                    
+                    # Cleanup the temporary AI upscaled image ONLY. We MUST KEEP the original file.
+                    if os.path.exists(result_path):
+                        os.remove(result_path)
                     
                     return path_4k
                     

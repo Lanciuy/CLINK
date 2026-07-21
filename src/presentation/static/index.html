@@ -81,7 +81,7 @@
                     </div>
                     <button id="downloadBtn" class="btn-glow text-white font-bold py-3.5 px-8 rounded-xl flex items-center gap-3 transition-all duration-300">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        Analyze Media
+                        Fetch Media
                     </button>
                 </div>
                 
@@ -115,6 +115,8 @@
                             </div>
                         </div>
                         
+
+                        
                         <!-- Cookies -->
                         <div class="bg-white/5 p-4 rounded-xl border border-white/5">
                             <div class="flex justify-between items-center mb-2">
@@ -142,13 +144,14 @@
                     <p class="text-white/40 text-sm mt-1">Select the specific items you want to download.</p>
                 </div>
                 <div class="flex gap-3 items-center">
-                    <label class="flex items-center gap-2 text-sm text-brand-300 font-medium cursor-pointer bg-brand-500/10 px-3 py-1.5 rounded-lg border border-brand-500/20 hover:bg-brand-500/20 transition-colors">
-                        <input type="checkbox" id="enhanceToggle" class="accent-brand-500 w-4 h-4 cursor-pointer">
-                        <span>Enhance Photos (AI Upscale)</span>
-                    </label>
-                    <button id="selectAllBtn" class="px-4 py-2 text-sm font-semibold rounded-xl bg-white/5 hover:bg-white/10 transition-colors border border-white/5">Select All</button>
-                    <button id="downloadSelectedBtn" class="btn-glow px-6 py-2 text-sm font-bold rounded-xl flex items-center gap-2 shadow-[0_0_15px_rgba(99,102,241,0.3)]">
-                        Download (<span id="selectedCount">0</span>)
+                    <button id="selectAllBtn" class="px-4 py-2 text-sm font-semibold rounded-xl bg-white/5 hover:bg-white/10 transition-colors border border-white/5 text-white/80">Select All</button>
+                    <button id="downloadSelectedBtn" class="px-5 py-2 text-sm font-bold rounded-xl flex items-center gap-2 bg-white/10 hover:bg-white/20 transition-colors border border-white/10 text-white">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Download Raw (<span id="selectedCount">0</span>)
+                    </button>
+                    <button id="enhanceSelectedBtn" class="btn-glow px-6 py-2 text-sm font-bold rounded-xl flex items-center gap-2 shadow-[0_0_15px_rgba(99,102,241,0.3)] text-white">
+                        <svg class="w-4 h-4 text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        ✨ AI Enhance (<span id="selectedCountEnhance">0</span>)
                     </button>
                 </div>
             </div>
@@ -165,7 +168,10 @@
                     <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                     Active Processes
                 </h3>
-                <span id="queueCount" class="text-xs font-bold tracking-wider bg-brand-500/10 text-brand-400 px-3 py-1.5 rounded-lg border border-brand-500/20 shadow-[0_0_10px_rgba(99,102,241,0.1)]">0 items</span>
+                <div class="flex items-center gap-3">
+                    <button id="clearQueueBtn" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 hover:text-white transition-all border border-white/5">Clear Finished</button>
+                    <span id="queueCount" class="text-xs font-bold tracking-wider bg-brand-500/10 text-brand-400 px-3 py-1.5 rounded-lg border border-brand-500/20 shadow-[0_0_10px_rgba(99,102,241,0.1)]">0 items</span>
+                </div>
             </div>
             
             <div id="queueList" class="flex flex-col gap-4 min-h-[200px]">
@@ -180,6 +186,87 @@
         </section>
 
     </main>
+
+    <!-- Before/After Slider Modal -->
+    <div id="comparisonModal" class="fixed inset-0 z-[90] hidden bg-dark-900/90 backdrop-blur-xl flex flex-col items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="w-full max-w-5xl flex justify-between items-center mb-6">
+            <h3 class="text-2xl font-bold text-white flex items-center gap-3">
+                <svg class="w-6 h-6 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
+                AI Enhancement Comparison
+            </h3>
+            <button id="closeComparisonBtn" class="text-white/50 hover:text-white transition-colors bg-white/5 hover:bg-white/10 p-2 rounded-full">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        
+        <div class="relative w-full max-w-5xl aspect-video bg-black rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(99,102,241,0.2)] border border-white/10 group cursor-ew-resize select-none" id="sliderContainer">
+            <!-- Original Image (Background) -->
+            <img id="imgOriginal" src="" class="absolute inset-0 w-full h-full object-contain pointer-events-none" />
+            
+            <!-- Enhanced Image (Clipped Foreground) -->
+            <div id="sliderClipper" class="absolute inset-0 w-1/2 overflow-hidden border-r-2 border-brand-500 pointer-events-none">
+                <img id="imgEnhanced" src="" class="absolute inset-0 w-[200%] h-full max-w-none object-contain pointer-events-none" />
+            </div>
+            
+            <!-- Slider Handle -->
+            <div id="sliderHandle" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-brand-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white text-white pointer-events-none transition-transform group-hover:scale-110">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
+            </div>
+            
+            <!-- Labels -->
+            <div class="absolute bottom-4 left-4 bg-brand-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg uppercase tracking-wider backdrop-blur-md">4K AI Enhanced</div>
+            <div class="absolute bottom-4 right-4 bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg uppercase tracking-wider backdrop-blur-md border border-white/10">Original</div>
+        </div>
+        <p class="text-white/40 text-sm mt-6 flex items-center gap-2"><svg class="w-4 h-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg> Drag horizontally to compare</p>
+    </div>
+
+    <!-- AI Enhancement Modal -->
+    <div id="aiModal" class="fixed inset-0 z-[80] hidden bg-dark-900/90 backdrop-blur-md flex flex-col items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="w-full max-w-lg bg-[#0f172a] rounded-3xl border border-white/10 shadow-[0_0_50px_rgba(99,102,241,0.15)] overflow-hidden">
+            <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                <h3 class="text-xl font-bold text-white flex items-center gap-3">
+                    <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                    AI Enhancement Settings
+                </h3>
+                <button id="closeAiModalBtn" class="text-white/40 hover:text-white transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <div class="p-8 flex flex-col gap-6">
+                <!-- Preset Selection -->
+                <div class="flex flex-col gap-3">
+                    <label class="text-sm font-semibold text-white/90">AI Model / Preset</label>
+                    <select id="aiPresetSelect" class="w-full bg-[#1e293b] border border-white/10 rounded-xl p-3.5 text-sm text-white focus:outline-none focus:border-brand-500 transition-colors">
+                        <option value="god_tier_cosplay_v1">God-Tier Cosplay Ultra-HD (Face-Aware)</option>
+                        <option value="standard_4k">Standard 4K Upscale (Generic)</option>
+                    </select>
+                    <p class="text-xs text-brand-300/70 ml-1">The Face-Aware preset automatically preserves facial identity while boosting clothing and background textures.</p>
+                </div>
+                
+                <!-- Color Boost Toggle -->
+                <div class="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/5 mt-2">
+                    <div class="flex flex-col">
+                        <span class="text-sm font-semibold text-white">Vibrance & HDR Color Pop</span>
+                        <span class="text-xs text-white/50">Enhance saturation and contrast automatically</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="aiColorBoostToggle" class="sr-only peer">
+                        <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-500"></div>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="p-6 border-t border-white/5 bg-white/[0.02] flex justify-end">
+                <button id="confirmAiBtn" class="btn-glow px-8 py-3 text-sm font-bold rounded-xl flex items-center gap-2 text-white">
+                    Start Enhancement
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-3 pointer-events-none"></div>
 
     <script src="/static/app.js"></script>
 </body>

@@ -21,21 +21,29 @@ from presentation.websocket_manager import WebSocketManager
 app = FastAPI(title="Clink Media Downloader")
 
 # Setup dependencies
-storage = LocalStorage(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "downloads"))
+base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+download_dir = os.path.join(base_dir, "downloads")
+original_dir = os.path.join(download_dir, "original")
+enhanced_dir = os.path.join(download_dir, "enhanced")
+
+os.makedirs(original_dir, exist_ok=True)
+os.makedirs(enhanced_dir, exist_ok=True)
+
+storage = LocalStorage(download_dir)
 os_adapter = OSSystemAdapter()
 
 from infrastructure.realesrgan_engine import RealESRGANEngine
 
 # Infrastructure Adapters (Tier 1 to 4)
-ytdlp_engine = YTDLPEngine(storage.get_download_path())
+ytdlp_engine = YTDLPEngine(original_dir)
 playwright_sniffer = PlaywrightSniffer()
-cookie_manager = LocalCookieManager(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+cookie_manager = LocalCookieManager(base_dir)
 ffmpeg_merger = FFmpegMerger()
-realesrgan_engine = RealESRGANEngine(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+realesrgan_engine = RealESRGANEngine(base_dir)
 
 # Use Cases
 analyze_use_case = AnalyzeMediaUseCase(ytdlp_engine, playwright_sniffer, cookie_manager)
-download_use_case = DownloadMediaUseCase(ytdlp_engine, playwright_sniffer, cookie_manager, ffmpeg_merger, realesrgan_engine)
+download_use_case = DownloadMediaUseCase(ytdlp_engine, playwright_sniffer, cookie_manager, ffmpeg_merger, realesrgan_engine, enhanced_dir=enhanced_dir)
 processor = BatchProcessor(download_use_case, max_concurrent=5)
 ws_manager = WebSocketManager()
 
@@ -80,6 +88,7 @@ async def start_downloads(request: BatchDownloadRequest):
         urls, 
         progress_callback, 
         enhance_images=request.enhance_images,
+        color_boost=request.color_boost,
         format_type=request.format_type,
         is_playlist=request.is_playlist
     ))
