@@ -21,10 +21,15 @@ class YTDLPEngine(IExtractorEngine):
         """
         is_audio = format_type == "audio"
         
+        # Force playlist extraction for specific platforms to handle carousels/threads
+        force_playlist = is_playlist
+        if platform in ['instagram', 'tiktok', 'x', 'twitter']:
+            force_playlist = True
+            
         ydl_opts = {
             'format': 'bestaudio/best' if is_audio else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'outtmpl': os.path.join(self.output_dir, '%(title)s.%(ext)s'),
-            'noplaylist': not is_playlist,
+            'noplaylist': not force_playlist,
             'quiet': True,
             'no_warnings': True,
             # Stealth & Anti-Ban Options
@@ -102,8 +107,13 @@ class YTDLPEngine(IExtractorEngine):
 
     async def analyze(self, url: str, use_cookies: bool = False, cookies_path: Optional[str] = None, is_playlist: bool = False, platform: str = "auto", media_filter: str = "all") -> Dict[str, Any]:
         """Extracts metadata without downloading. Returns the info_dict."""
+        # Force playlist extraction for specific platforms to handle carousels/threads
+        force_playlist = is_playlist
+        if platform in ['instagram', 'tiktok', 'x', 'twitter']:
+            force_playlist = True
+            
         ydl_opts = {
-            'noplaylist': not is_playlist,
+            'noplaylist': not force_playlist,
             'quiet': True,
             'no_warnings': True,
             # Stealth & Anti-Ban Options
