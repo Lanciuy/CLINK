@@ -62,7 +62,12 @@ async def analyze_url(request: AnalyzeRequest):
     try:
         if not request.urls:
             raise Exception("No URLs provided")
-        return await analyze_use_case.execute(request.urls[0], is_playlist=request.is_playlist)
+        return await analyze_use_case.execute(
+            request.urls[0], 
+            is_playlist=request.is_playlist,
+            platform=request.platform,
+            media_filter=request.media_filter
+        )
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
