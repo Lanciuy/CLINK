@@ -33,21 +33,14 @@ def apply_preset(ai_img: np.ndarray, orig_img: np.ndarray, color_boost: bool = F
     # 2. Skin / Surface Smoothing (Edge-preserving Bilateral Filter)
     ai_img_smooth = cv2.bilateralFilter(ai_img_hdr, d=9, sigmaColor=25, sigmaSpace=25)
     
-    # 3. LAB Color Match (Restores original authentic color tone)
+    # 3. PERFECT Color Preservation (Luminance Mapping)
+    # We take the high-res texture (Luminance) from AI, but keep the exact colors (A & B) from the original
     orig_lab = cv2.cvtColor(orig_up, cv2.COLOR_BGR2LAB).astype(np.float32)
     ai_lab_float = cv2.cvtColor(ai_img_smooth, cv2.COLOR_BGR2LAB).astype(np.float32)
     
-    for i in range(1, 3):  # Match A and B channels
-        orig_mean, orig_std = float(orig_lab[:, :, i].mean()), float(orig_lab[:, :, i].std())
-        ai_mean, ai_std = float(ai_lab_float[:, :, i].mean()), float(ai_lab_float[:, :, i].std())
-        if ai_std > 0:
-            ai_lab_float[:, :, i] = cv2.addWeighted(
-                cv2.subtract(ai_lab_float[:, :, i], ai_mean),
-                orig_std / ai_std,
-                ai_lab_float[:, :, i],
-                0.0,
-                orig_mean
-            )
+    # Directly map original color channels (A, B) to the AI image
+    ai_lab_float[:, :, 1] = orig_lab[:, :, 1]
+    ai_lab_float[:, :, 2] = orig_lab[:, :, 2]
             
     # Optional: Color Boost / Vibrance
     if color_boost:
