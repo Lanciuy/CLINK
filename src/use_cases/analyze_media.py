@@ -28,14 +28,14 @@ class AnalyzeMediaUseCase:
         try:
             # Tier 1: yt-dlp
             self.logger.info(f"Analyzing {url_str} via Tier 1 (yt-dlp)")
-            info = await self.extractor.analyze(url_str, use_cookies=False, cookies_path=cookies_path, is_playlist=is_playlist)
+            info = await self.extractor.analyze(url_str, use_cookies=False, cookies_path=cookies_path, is_playlist=is_playlist, platform=platform, media_filter=media_filter)
         except Exception as e:
             last_error = e
 
         if isinstance(last_error, (LoginRequiredException, ExtractionFailedException)):
             try:
                 self.logger.info("Tier 1 analysis failed. Falling back to Tier 3 (Cookies).")
-                info = await self.extractor.analyze(url_str, use_cookies=True, cookies_path=cookies_path, is_playlist=is_playlist)
+                info = await self.extractor.analyze(url_str, use_cookies=True, cookies_path=cookies_path, is_playlist=is_playlist, platform=platform, media_filter=media_filter)
                 last_error = None
             except Exception as e:
                 self.logger.warning(f"Tier 3 analysis failed: {e}")
@@ -74,7 +74,7 @@ class AnalyzeMediaUseCase:
             self.logger.warning(f"Falling back to Tier 2 (Playwright). Last error: {last_error}")
             # Tier 2: Playwright Sniffer
             try:
-                media_list = await self.sniffer.sniff_all_media(url_str)
+                media_list = await self.sniffer.sniff_all_media(url_str, cookies_path=cookies_path)
                 for media in media_list:
                     items.append(MediaItem(
                         id=str(uuid.uuid4()),

@@ -1,20 +1,49 @@
 import asyncio
 import random
-from typing import List, Dict
+import os
+import logging
+from typing import List, Dict, Optional
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 from domain.interfaces import ISniffer
 from domain.exceptions import ExtractionFailedException, SnifferException
 from infrastructure.stealth_utils import get_random_user_agent, get_random_viewport
 
+def parse_netscape_cookies(file_path: str) -> List[Dict]:
+    cookies = []
+    if not os.path.exists(file_path):
+        return cookies
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if not line.strip() or (line.startswith('#') and not line.startswith('#HttpOnly_')):
+                    continue
+                parts = line.strip().split('\t')
+                if len(parts) >= 7:
+                    domain = parts[0]
+                    if domain.startswith('#HttpOnly_'):
+                        domain = domain[10:]
+                    
+                    cookies.append({
+                        'domain': domain,
+                        'path': parts[2],
+                        'secure': parts[3] == 'TRUE',
+                        'expires': float(parts[4]) if parts[4].isdigit() else -1,
+                        'name': parts[5],
+                        'value': parts[6]
+                    })
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Failed to parse cookies: {e}")
+    return cookies
+
 class PlaywrightSniffer(ISniffer):
     """Tier 2: Stealth Network Interceptor (GraphQL/REST API sniffer)."""
     
-    async def sniff_media_url(self, url: str) -> str:
+    async def sniff_media_url(self, url: str, cookies_path: Optional[str] = None) -> str:
         """
         Extracts a single main media URL from the page.
         """
-        items = await self.sniff_all_media(url)
+        items = await self.sniff_all_media(url, cookies_path)
         if not items:
             raise SnifferException(f"No media found on {url}")
         
@@ -24,7 +53,7 @@ class PlaywrightSniffer(ISniffer):
             return videos[0]['url']
         return items[0]['url']
 
-    async def sniff_all_media(self, url: str) -> List[Dict[str, str]]:
+    async def sniff_all_media(self, url: str, cookies_path: Optional[str] = None) -> List[Dict[str, str]]:
         """
         Launches headless Chromium, navigates to URL, and finds all media elements.
         Returns a list of dicts: [{'url': str, 'type': 'image'|'video'}]
@@ -48,6 +77,16 @@ class PlaywrightSniffer(ISniffer):
                     user_agent=ua,
                     viewport={"width": vp["width"], "height": vp["height"]}
                 )
+                
+                if cookies_path:
+                    parsed_cookies = parse_netscape_cookies(cookies_path)
+                    if parsed_cookies:
+                        # Add a dummy URL if required or just inject directly
+                        try:
+                            await context.add_cookies(parsed_cookies)
+                        except Exception as e:
+                            logging.getLogger(__name__).warning(f"Playwright failed to inject cookies: {e}")
+                            
                 page = await context.new_page()
                 await Stealth().apply_stealth_async(page)
                 

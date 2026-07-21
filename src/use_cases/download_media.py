@@ -53,7 +53,7 @@ class DownloadMediaUseCase:
         if not file_path:
             try:
                 self.logger.info("Attempting Tier 2 (Playwright Sniffer)")
-                sniffed_url = await self.sniffer.sniff_media_url(url)
+                sniffed_url = await self.sniffer.sniff_media_url(url, cookies_path=cookies_path)
                 self.logger.info(f"Tier 2 found raw URL: {sniffed_url}. Passing to Tier 1.")
                 
                 # Use Tier 1 to download the raw CDN URL

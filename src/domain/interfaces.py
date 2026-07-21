@@ -14,11 +14,11 @@ class IExtractorEngine(abc.ABC):
 class ISniffer(abc.ABC):
     """Tier 2 interface for stealth network interception."""
     @abc.abstractmethod
-    async def sniff_media_url(self, url: str) -> str:
+    async def sniff_media_url(self, url: str, cookies_path: Optional[str] = None) -> str:
         pass
         
     @abc.abstractmethod
-    async def sniff_all_media(self, url: str) -> List[Dict[str, str]]:
+    async def sniff_all_media(self, url: str, cookies_path: Optional[str] = None) -> List[Dict[str, str]]:
         pass
 
 class ICookieManager(abc.ABC):
