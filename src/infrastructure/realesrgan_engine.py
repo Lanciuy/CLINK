@@ -101,7 +101,7 @@ class RealESRGANEngine(IEnhancer):
                     orig_up = cv2.resize(orig_img, (w, h), interpolation=cv2.INTER_LANCZOS4)
                     
                     # Use the modular God-Tier Cosplay v1 preset
-                    from src.infrastructure.presets.god_tier_cosplay_v1 import apply_preset
+                    from infrastructure.presets.god_tier_cosplay_v1 import apply_preset
                     
                     self.logger.info("Applying GOD-TIER Pipeline Preset: God-Tier Cosplay Ultra-HD v1")
                     blended = apply_preset(ai_img, orig_img, color_boost=color_boost)

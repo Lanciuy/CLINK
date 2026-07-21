@@ -1,12 +1,20 @@
+import os
+import asyncio
+import traceback
+from typing import List
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, HttpUrl
-from typing import List
-import os
-import asyncio
 
-from domain.models import DownloadRequest, BatchDownloadRequest, AnalyzeRequest, AnalyzeResponse, CookieSaveRequest, CookieSaveResponse
+from domain.models import (
+    DownloadRequest, 
+    BatchDownloadRequest, 
+    AnalyzeRequest, 
+    AnalyzeResponse, 
+    CookieSaveRequest, 
+    CookieSaveResponse
+)
 from use_cases.local_storage import LocalStorage
 from use_cases.batch_processor import BatchProcessor
 from use_cases.analyze_media import AnalyzeMediaUseCase
@@ -16,6 +24,7 @@ from infrastructure.playwright_sniffer import PlaywrightSniffer
 from infrastructure.ffmpeg_merger import FFmpegMerger
 from infrastructure.local_cookie_manager import LocalCookieManager
 from infrastructure.os_system_adapter import OSSystemAdapter
+from infrastructure.realesrgan_engine import RealESRGANEngine
 from presentation.websocket_manager import WebSocketManager
 
 app = FastAPI(title="Clink Media Downloader")
@@ -31,8 +40,6 @@ os.makedirs(enhanced_dir, exist_ok=True)
 
 storage = LocalStorage(download_dir)
 os_adapter = OSSystemAdapter()
-
-from infrastructure.realesrgan_engine import RealESRGANEngine
 
 # Infrastructure Adapters (Tier 1 to 4)
 ytdlp_engine = YTDLPEngine(original_dir)
@@ -54,8 +61,6 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 @app.get("/")
 async def root():
     return FileResponse(os.path.join(static_dir, "index.html"))
-
-import traceback
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 async def analyze_url(request: AnalyzeRequest):

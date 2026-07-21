@@ -79,7 +79,7 @@ class AnalyzeMediaUseCase:
                     items.append(MediaItem(
                         id=str(uuid.uuid4()),
                         url=media['url'],
-                        thumbnail=media['url'],
+                        thumbnail=media.get('thumbnail') or media['url'],
                         type=MediaType.IMAGE if media['type'] == 'image' else MediaType.VIDEO,
                         source_url=url_str
                     ))

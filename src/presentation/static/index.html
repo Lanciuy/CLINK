@@ -54,18 +54,29 @@
         </button>
     </nav>
 
+    <!-- Drag & Drop Overlay -->
+    <div id="dragOverlay" class="drag-overlay fixed inset-0 z-[100] flex flex-col items-center justify-center opacity-0 pointer-events-none transition-all duration-300 scale-105">
+        <div class="bg-dark-900/80 p-10 rounded-3xl backdrop-blur-xl border border-brand-500/50 flex flex-col items-center gap-6 shadow-[0_0_100px_rgba(99,102,241,0.2)]">
+            <div class="w-24 h-24 rounded-full bg-brand-500/20 flex items-center justify-center animate-pulse-ring">
+                <svg class="w-12 h-12 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+            </div>
+            <h2 class="text-3xl font-extrabold text-white text-center">Drop .txt file to Batch Import</h2>
+            <p class="text-brand-300 font-medium">Auto-parsing URLs on the fly...</p>
+        </div>
+    </div>
+
     <!-- Main Content -->
-    <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-12 flex flex-col gap-10 relative z-10 animate-slide-up">
+    <main class="flex-1 w-full max-w-[95%] 2xl:max-w-[1600px] mx-auto px-4 md:px-8 py-10 flex flex-col gap-12 relative z-10 animate-slide-up">
         
         <!-- Hero Section -->
-        <div class="text-center mb-4">
-            <h2 class="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight"><span class="text-gradient">Ultra-HD</span> Media Engine</h2>
-            <p class="text-white/60 text-lg max-w-2xl mx-auto">Extract and download native-resolution assets from any major social platform. Zero quality loss. 4-Tier fallback engine.</p>
+        <div class="text-center mb-2">
+            <h2 class="text-4xl md:text-6xl font-extrabold mb-4 tracking-tight drop-shadow-2xl"><span class="text-gradient">Ultra-HD</span> Media Engine</h2>
+            <p class="text-white/60 text-lg md:text-xl max-w-3xl mx-auto font-light">Extract and download native-resolution assets from any major social platform. Zero quality loss. 4-Tier fallback engine.</p>
         </div>
 
         <!-- Input Section -->
-        <section class="glass-card p-1 rounded-2xl mx-auto w-full max-w-3xl transform hover:scale-[1.005] transition-transform duration-300">
-            <div class="bg-[#0f172a]/80 backdrop-blur-3xl rounded-xl p-8 flex flex-col gap-6">
+        <section class="glass-card p-1.5 rounded-3xl mx-auto w-full max-w-5xl transform hover:scale-[1.002] transition-transform duration-500 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+            <div class="bg-[#0f172a]/80 backdrop-blur-3xl rounded-[1.35rem] p-8 md:p-10 flex flex-col gap-8">
                 <!-- Platform Selector -->
                 <div class="flex flex-wrap gap-2 mb-2" id="platformSelector">
                     <button data-platform="auto" class="platform-btn active px-4 py-2 rounded-xl text-sm font-bold transition-all border border-brand-500 bg-brand-500/20 text-brand-300">
@@ -168,35 +179,27 @@
         </section>
 
         <!-- Selection Section (Hidden by default) -->
-        <section id="selectionSection" class="hidden flex flex-col gap-6 mt-2 max-w-4xl mx-auto w-full glass-card p-6 rounded-2xl animate-slide-up">
+        <section id="selectionSection" class="hidden flex-col gap-6 mt-4 w-full mx-auto glass-card p-8 rounded-3xl animate-slide-up">
             <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-white/5 pb-4 gap-4">
                 <div>
-                    <h3 class="text-xl font-bold flex items-center gap-3">
-                        <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                    <h3 class="text-2xl font-bold flex items-center gap-3">
+                        <svg class="w-6 h-6 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
                         Found Media Items
                     </h3>
-                    <p class="text-white/40 text-sm mt-1">Select the specific items you want to download.</p>
+                    <p class="text-white/40 text-base mt-1">Select the specific items you want to download or enhance.</p>
                 </div>
                 <div class="flex gap-3 items-center">
-                    <button id="selectAllBtn" class="px-4 py-2 text-sm font-semibold rounded-xl bg-white/5 hover:bg-white/10 transition-colors border border-white/5 text-white/80">Select All</button>
-                    <button id="downloadSelectedBtn" class="px-5 py-2 text-sm font-bold rounded-xl flex items-center gap-2 bg-white/10 hover:bg-white/20 transition-colors border border-white/10 text-white whitespace-nowrap">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        <span>Download Raw (<span id="selectedCount">0</span>)</span>
-                    </button>
-                    <button id="enhanceSelectedBtn" class="btn-glow px-6 py-2 text-sm font-bold rounded-xl flex items-center gap-2 shadow-[0_0_15px_rgba(99,102,241,0.3)] text-white whitespace-nowrap">
-                        <svg class="w-4 h-4 text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                        <span>✨ AI Enhance (<span id="selectedCountEnhance">0</span>)</span>
-                    </button>
+                    <button id="selectAllBtn" class="px-5 py-2.5 text-sm font-semibold rounded-xl bg-white/5 hover:bg-white/10 transition-colors border border-white/5 text-white/80">Select All</button>
                 </div>
             </div>
             
-            <div id="mediaGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div id="mediaGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 max-h-[70vh] overflow-y-auto pr-4 custom-scrollbar">
                 <!-- Items injected by JS -->
             </div>
         </section>
 
         <!-- Queue Section -->
-        <section class="flex flex-col gap-6 mt-4 max-w-4xl mx-auto w-full">
+        <section class="flex flex-col gap-6 mt-8 w-full mx-auto">
             <div class="flex items-center justify-between px-2 border-b border-white/5 pb-4">
                 <h3 class="text-xl font-bold flex items-center gap-3">
                     <svg class="w-5 h-5 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
@@ -299,8 +302,45 @@
         </div>
     </div>
 
+    <!-- Floating Action Bar for Selection -->
+    <div id="floatingActionBar" class="floating-bar fixed bottom-8 left-1/2 -translate-x-1/2 z-[85] px-6 py-4 rounded-full flex items-center gap-6">
+        <div class="text-sm font-bold text-white/90 whitespace-nowrap">
+            <span class="text-brand-400 text-lg mr-1" id="floatSelectCount">0</span> Selected
+        </div>
+        <div class="w-px h-8 bg-white/10"></div>
+        <div class="flex gap-3">
+            <button id="downloadSelectedBtn" class="px-6 py-2.5 text-sm font-bold rounded-full flex items-center gap-2 bg-white/10 hover:bg-white/20 transition-all border border-white/10 text-white hover:scale-105">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <span>Download Raw</span>
+            </button>
+            <button id="enhanceSelectedBtn" class="btn-glow px-6 py-2.5 text-sm font-bold rounded-full flex items-center gap-2 shadow-[0_0_15px_rgba(99,102,241,0.3)] text-white hover:scale-105">
+                <svg class="w-4 h-4 text-brand-200" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l2.4 7.6H22l-6.2 4.8 2.4 7.6L12 17.2 5.8 22l2.4-7.6L2 9.6h7.6L12 2z"></path></svg>
+                <span>✨ AI Enhance</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- AI Terminal Log -->
+    <div class="fixed bottom-6 right-6 z-[95] w-80 terminal-window rounded-2xl p-4 flex flex-col gap-2 overflow-hidden hover:scale-105 transition-transform duration-300">
+        <div class="flex items-center justify-between border-b border-white/10 pb-2 mb-1">
+            <div class="flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+            </div>
+            <span class="text-[10px] font-mono text-white/40 uppercase tracking-widest font-bold">Neural Core v2.0</span>
+        </div>
+        <div class="font-mono text-xs text-brand-300 h-16 flex flex-col justify-end">
+            <div id="terminalLog" class="text-white/60 mb-1 line-clamp-2 leading-relaxed opacity-70"></div>
+            <div class="flex items-center text-brand-400 font-bold">
+                <span class="mr-2 text-purple-400">root@clink:~#</span>
+                <span id="terminalActive" class="typewriter-text">Waiting for target URL...</span><span class="typewriter-cursor"></span>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
-    <div id="toastContainer" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-3 pointer-events-none"></div>
+    <div id="toastContainer" class="fixed top-24 right-5 z-[100] flex flex-col gap-3 pointer-events-none"></div>
 
     <script src="/static/app.js"></script>
 </body>

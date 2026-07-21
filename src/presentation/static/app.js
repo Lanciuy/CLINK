@@ -126,23 +126,139 @@ platformBtns.forEach(btn => {
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const ws = new WebSocket(`${protocol}//${window.location.host}/ws/progress`);
 
+// AI Terminal Logic
+const terminalLog = document.getElementById('terminalLog');
+const terminalActive = document.getElementById('terminalActive');
+let terminalHistory = [];
+
+function typeTerminal(text) {
+    if (!terminalActive || !terminalLog) return;
+    
+    if (terminalActive.textContent !== "Waiting for target URL..." && terminalActive.textContent.trim() !== "") {
+        terminalHistory.push(terminalActive.textContent);
+        if (terminalHistory.length > 5) terminalHistory.shift();
+        terminalLog.innerHTML = terminalHistory.map(t => `<div>> ${t}</div>`).join('');
+    }
+    
+    // Typewriter effect
+    terminalActive.textContent = '';
+    let i = 0;
+    function typeChar() {
+        if (i < text.length) {
+            terminalActive.textContent += text.charAt(i);
+            i++;
+            setTimeout(typeChar, 10 + Math.random() * 20); // Very fast typing
+        }
+    }
+    typeChar();
+}
+
 ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     updateQueueItem(data);
+    
+    // Update terminal with key events
+    if (data.status === 'processing') {
+        typeTerminal(`[AI ENGINE] Processing tensor graph for ${data.id.substring(0,6)}...`);
+    } else if (data.status === 'completed') {
+        typeTerminal(`[SUCCESS] Job ${data.id.substring(0,6)} finished successfully.`);
+    } else if (data.status === 'failed') {
+        typeTerminal(`[ERROR] Job ${data.id.substring(0,6)} failed: ${data.error_message}`);
+    } else if (data.status === 'downloading' && Math.random() > 0.8) {
+        // Randomly show download logs so it's not spamming
+        typeTerminal(`[NET] Fetching stream ${data.id.substring(0,6)} at ${data.speed_mbps ? data.speed_mbps.toFixed(1) : '...'} MB/s`);
+    }
 };
 
 ws.onclose = () => {
     console.warn("WebSocket disconnected. Progress updates will be unavailable.");
+    typeTerminal(`[FATAL] WebSocket disconnected.`);
 };
 
-// Auto-detect clipboard URLs
+// Drag and Drop Logic
+const dragOverlay = document.getElementById('dragOverlay');
+
+window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    if (dragOverlay) dragOverlay.classList.add('drag-overlay-active');
+});
+
+window.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    if (e.clientX === 0 || e.clientY === 0) {
+        if (dragOverlay) dragOverlay.classList.remove('drag-overlay-active');
+    }
+});
+
+window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (dragOverlay) dragOverlay.classList.remove('drag-overlay-active');
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (file.name.endsWith('.txt')) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const text = event.target.result;
+                const matches = text.match(/https?:\/\/[^\s]+/g);
+                if (matches && matches.length > 0) {
+                    urlInput.value = matches.join('\\n');
+                    showToast(`Imported ${matches.length} URLs from ${file.name}`, 'success');
+                    typeTerminal(`Imported ${matches.length} URLs via batch text file.`);
+                } else {
+                    showToast(`No valid URLs found in ${file.name}`, 'error');
+                }
+            };
+            reader.readAsText(file);
+        } else {
+            showToast('Please drop a .txt file containing URLs.', 'info');
+        }
+    }
+});
+
+// Smart Clipboard Auto-detect
+let lastClipboardPrompt = '';
 window.addEventListener('focus', async () => {
     try {
         const text = await navigator.clipboard.readText();
-        if (text && /^https?:\/\//i.test(text.trim())) {
-            if (!urlInput.value.includes(text.trim())) {
-                urlInput.value = urlInput.value ? `${urlInput.value}\n${text.trim()}` : text.trim();
-            }
+        if (text && /^https?:\/\//i.test(text.trim()) && text.trim() !== lastClipboardPrompt && !urlInput.value.includes(text.trim())) {
+            lastClipboardPrompt = text.trim();
+            const urlCount = (text.match(/https?:\/\//gi) || []).length;
+            
+            // Show smart toast instead of injecting directly
+            const toast = document.createElement('div');
+            toast.className = 'flex flex-col gap-2 p-4 rounded-xl border backdrop-blur-xl bg-brand-500/10 border-brand-500/30 shadow-[0_0_20px_rgba(99,102,241,0.2)] animate-slide-in pointer-events-auto';
+            toast.innerHTML = `
+                <div class="flex items-center gap-3 text-brand-300">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    <span class="font-bold text-sm">Clipboard Detected</span>
+                </div>
+                <p class="text-xs text-white/70">Found ${urlCount} URL(s) in clipboard. Import them?</p>
+                <div class="flex gap-2 mt-1">
+                    <button id="toastImportBtn" class="px-3 py-1.5 bg-brand-500/20 hover:bg-brand-500/40 text-brand-300 text-xs font-bold rounded-lg transition-colors border border-brand-500/30">Import</button>
+                    <button id="toastIgnoreBtn" class="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/50 text-xs font-bold rounded-lg transition-colors">Ignore</button>
+                </div>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            const importBtn = toast.querySelector('#toastImportBtn');
+            const ignoreBtn = toast.querySelector('#toastIgnoreBtn');
+            
+            importBtn.onclick = () => {
+                urlInput.value = urlInput.value ? `${urlInput.value}\\n${text.trim()}` : text.trim();
+                typeTerminal(`Injected ${urlCount} URLs from clipboard buffer.`);
+                toast.remove();
+            };
+            
+            ignoreBtn.onclick = () => toast.remove();
+            
+            setTimeout(() => {
+                if(document.body.contains(toast)) {
+                    toast.classList.replace('animate-slide-in', 'opacity-0');
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, 8000);
         }
     } catch (err) {
         // Ignore clipboard read errors
@@ -177,8 +293,18 @@ function renderMediaGrid() {
             } else {
                 selectedUrls.add(item.url);
             }
-            selectedCount.textContent = selectedUrls.size;
+            if(selectedCount) selectedCount.textContent = selectedUrls.size;
             if(selectedCountEnhance) selectedCountEnhance.textContent = selectedUrls.size;
+            
+            // Update floating action bar
+            const floatCount = document.getElementById('floatSelectCount');
+            const floatingBar = document.getElementById('floatingActionBar');
+            if (floatCount) floatCount.textContent = selectedUrls.size;
+            if (floatingBar) {
+                if (selectedUrls.size > 0) floatingBar.classList.add('active');
+                else floatingBar.classList.remove('active');
+            }
+            
             renderMediaGrid();
         };
         
@@ -192,8 +318,17 @@ selectAllBtn.onclick = () => {
     } else {
         extractedMediaItems.forEach(i => selectedUrls.add(i.url));
     }
-    selectedCount.textContent = selectedUrls.size;
+    if(selectedCount) selectedCount.textContent = selectedUrls.size;
     if(selectedCountEnhance) selectedCountEnhance.textContent = selectedUrls.size;
+    
+    const floatCount = document.getElementById('floatSelectCount');
+    const floatingBar = document.getElementById('floatingActionBar');
+    if (floatCount) floatCount.textContent = selectedUrls.size;
+    if (floatingBar) {
+        if (selectedUrls.size > 0) floatingBar.classList.add('active');
+        else floatingBar.classList.remove('active');
+    }
+    
     renderMediaGrid();
 };
 
@@ -230,11 +365,16 @@ downloadSelectedBtn.onclick = async () => {
         });
         
         selectedUrls.clear();
-        selectedCount.textContent = '0';
-        selectedCountEnhance.textContent = '0';
+        if(selectedCount) selectedCount.textContent = '0';
+        if(selectedCountEnhance) selectedCountEnhance.textContent = '0';
+        
+        const floatCount = document.getElementById('floatSelectCount');
+        const floatingBar = document.getElementById('floatingActionBar');
+        if (floatCount) floatCount.textContent = '0';
+        if (floatingBar) floatingBar.classList.remove('active');
+        
         renderMediaGrid();
-        downloadSelectedBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Download Raw (<span id="selectedCount">0</span>)`;
-        enhanceSelectedBtn.innerHTML = `<svg class="w-4 h-4 text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ✨ AI Enhance (<span id="selectedCountEnhance">0</span>)`;
+        typeTerminal(`Triggering batch download for ${urlsToDownload.length} items...`);
         
     } catch (e) {
         console.error("Failed to start download", e);
@@ -296,11 +436,16 @@ confirmAiBtn.onclick = async () => {
         });
         
         selectedUrls.clear();
-        selectedCount.textContent = '0';
-        selectedCountEnhance.textContent = '0';
+        if(selectedCount) selectedCount.textContent = '0';
+        if(selectedCountEnhance) selectedCountEnhance.textContent = '0';
+        
+        const floatCount = document.getElementById('floatSelectCount');
+        const floatingBar = document.getElementById('floatingActionBar');
+        if (floatCount) floatCount.textContent = '0';
+        if (floatingBar) floatingBar.classList.remove('active');
+        
         renderMediaGrid();
-        downloadSelectedBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Download Raw (<span id="selectedCount">0</span>)`;
-        enhanceSelectedBtn.innerHTML = `<svg class="w-4 h-4 text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ✨ AI Enhance (<span id="selectedCountEnhance">0</span>)`;
+        typeTerminal(`Initializing AI Enhancement for ${urlsToDownload.length} items...`);
         
     } catch (e) {
         console.error("Failed to start AI download", e);
@@ -339,6 +484,8 @@ downloadBtn.addEventListener('click', async () => {
     urlInput.value = '';
     downloadBtn.innerHTML = '<svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Analyzing...';
     downloadBtn.disabled = true;
+    
+    typeTerminal(`Initializing sniffer for ${urls.length} link(s)...`);
 
     try {
         const res = await fetch('/api/analyze', {
@@ -359,13 +506,21 @@ downloadBtn.addEventListener('click', async () => {
             extractedMediaItems = data.items;
             selectedUrls.clear();
             extractedMediaItems.forEach(i => selectedUrls.add(i.url)); // Select all by default
-            selectedCount.textContent = selectedUrls.size;
-            selectedCountEnhance.textContent = selectedUrls.size;
+            if(selectedCount) selectedCount.textContent = selectedUrls.size;
+            if(selectedCountEnhance) selectedCountEnhance.textContent = selectedUrls.size;
+            
+            const floatCount = document.getElementById('floatSelectCount');
+            const floatingBar = document.getElementById('floatingActionBar');
+            if (floatCount) floatCount.textContent = selectedUrls.size;
+            if (floatingBar) floatingBar.classList.add('active');
             
             renderMediaGrid();
             selectionSection.classList.remove('hidden');
+            selectionSection.classList.add('flex');
+            typeTerminal(`Analysis complete. Found ${data.items.length} media items.`);
         } else {
             showToast(data.error || "No media found at this URL.", 'error');
+            typeTerminal(`Analysis failed: No media found.`);
         }
     } catch (e) {
         console.error("Failed to analyze URL", e);

@@ -1,6 +1,8 @@
 import asyncio
 import random
 import os
+import re
+import json
 import logging
 from typing import List, Dict, Optional
 from playwright.async_api import async_playwright
@@ -92,15 +94,43 @@ class PlaywrightSniffer(ISniffer):
                 
                 # Network Interception for MP4/Video streams (Reels/Stories)
                 captured_videos = set()
-                def handle_response(response):
+                
+                async def handle_response(response):
                     try:
                         url = response.url
                         content_type = response.headers.get("content-type", "")
+                        
+                        # 1. Direct Media URLs (Fallback if JSON fails)
                         if response.request.resource_type == "media" or ".mp4" in url or "video" in content_type:
-                            # Filter out small segments if possible, prefer full videos
-                            if "byte-range" not in url and "segment" not in url:
-                                captured_videos.add(url)
-                    except:
+                            if "segment" not in url and "m4s" not in url:
+                                full_video_url = re.sub(r'&bytestart=[0-9]+', '', url)
+                                full_video_url = re.sub(r'&byteend=[0-9]+', '', full_video_url)
+                                full_video_url = re.sub(r'\?bytestart=[0-9]+', '?', full_video_url)
+                                full_video_url = re.sub(r'\?byteend=[0-9]+', '?', full_video_url)
+                                full_video_url = full_video_url.replace('?&', '?').rstrip('?').rstrip('&')
+                                captured_videos.add(full_video_url)
+                                
+                        # 2. GraphQL / API JSON Responses (Bulletproof Progressive MP4 extraction)
+                        if "graphql" in url or "api/v1" in url:
+                            try:
+                                json_data = await response.json()
+                                def extract_urls(obj):
+                                    if isinstance(obj, dict):
+                                        if "video_versions" in obj and isinstance(obj["video_versions"], list):
+                                            for v in obj["video_versions"]:
+                                                if "url" in v and isinstance(v["url"], str):
+                                                    captured_videos.add(v["url"])
+                                        if "video_url" in obj and isinstance(obj["video_url"], str):
+                                            captured_videos.add(obj["video_url"])
+                                        for v in obj.values():
+                                            extract_urls(v)
+                                    elif isinstance(obj, list):
+                                        for item in obj:
+                                            extract_urls(item)
+                                extract_urls(json_data)
+                            except Exception:
+                                pass
+                    except Exception:
                         pass
                 page.on("response", handle_response)
                 
@@ -113,8 +143,10 @@ class PlaywrightSniffer(ISniffer):
                 try:
                     await page.mouse.click(vp["width"] // 2, vp["height"] // 2)
                     await page.wait_for_timeout(random.randint(1500, 2500)) # Give IG/JS time to render and buffer video
-                except:
+                except Exception:
                     pass
+                
+                original_url_base = page.url.split('?')[0].rstrip('/')
                 
                 media_items = []
                 for _ in range(15): # Max 15 carousel items
@@ -132,7 +164,7 @@ class PlaywrightSniffer(ISniffer):
                         let videos = Array.from(container.querySelectorAll('video'));
                         for (let video of videos) {
                             if (video.src && !video.src.startsWith('blob:')) {
-                                results.push({url: video.src, type: 'video'});
+                                results.push({url: video.src, type: 'video', thumbnail: video.poster || null});
                             }
                         }
                         
@@ -140,6 +172,17 @@ class PlaywrightSniffer(ISniffer):
                         let imgs = Array.from(container.querySelectorAll('img'));
                         for (let img of imgs) {
                             if (img.src && img.src.startsWith('data:')) continue;
+                            
+                            let altText = (img.getAttribute('alt') || '').toLowerCase();
+                            if (altText.includes('profile picture') || altText.includes('foto profil')) continue;
+                            
+                            // 100% BULLETPROOF FILTER: Ignore any image smaller than 320px wide
+                            // Desktop main posts are > 400px. Grid thumbnails are ~293px. Profile pics are < 150px.
+                            // The Playwright script clicks "Next" sequentially, making each main carousel image visible.
+                            // Therefore, we do NOT need to guess if a 0px (hidden) image is valid. It will be validated when visible!
+                            if (img.clientWidth < 320) {
+                                continue;
+                            }
                             
                             let bestImg = null;
                             let maxWidth = 0;
@@ -157,11 +200,8 @@ class PlaywrightSniffer(ISniffer):
                                 }
                             }
                             
-                            if (maxWidth < 500) {
-                                let area = img.clientWidth * img.clientHeight;
-                                if (area > 40000 && img.clientWidth > 300) {
-                                    bestImg = img.src;
-                                }
+                            if (!bestImg) {
+                                bestImg = img.src;
                             }
                             
                             if (bestImg) {
@@ -190,18 +230,58 @@ class PlaywrightSniffer(ISniffer):
                         if item not in media_items:
                             media_items.append(item)
                             
+                    # Extract global thumbnail for network videos
+                    global_thumb = None
+                    try:
+                        global_thumb = await page.evaluate('''() => {
+                            // 1. Try video poster
+                            let vids = Array.from(document.querySelectorAll('video'));
+                            for (let v of vids) {
+                                if (v.poster && !v.poster.includes('119098904_143875323910363')) return v.poster;
+                            }
+                            
+                            // 2. Try og:image
+                            let og = document.querySelector('meta[property="og:image"]');
+                            if (og && og.content && !og.content.includes('119098904_143875323910363')) return og.content;
+                            
+                            // 3. Try largest image on page
+                            let imgs = Array.from(document.querySelectorAll('img'));
+                            let bestImg = null;
+                            let maxW = 0;
+                            for (let i of imgs) {
+                                if (i.clientWidth > maxW && i.src && !i.src.startsWith('data:')) {
+                                    maxW = i.clientWidth;
+                                    bestImg = i.src;
+                                }
+                            }
+                            if (maxW >= 320 && bestImg) return bestImg;
+                            
+                            return null;
+                        }''')
+                    except Exception:
+                        pass
+                        
                     # Inject captured network videos
                     for vid_url in list(captured_videos):
                         clean_url = vid_url.split('?')[0] if '?' in vid_url else vid_url
                         # Basic deduplication
                         if not any(clean_url in m['url'] for m in media_items if m['type'] == 'video'):
-                            media_items.insert(0, {'url': vid_url, 'type': 'video'})
+                            media_items.insert(0, {'url': vid_url, 'type': 'video', 'thumbnail': global_thumb})
                             
                     try:
-                        next_btn = await page.query_selector('button[aria-label="Next"]')
+                        # Prioritize clicking the carousel's next button (inside article) instead of the "Next Post" button
+                        next_btn = await page.query_selector('article button[aria-label="Next"]')
+                        if not next_btn:
+                            next_btn = await page.query_selector('button[aria-label="Next"]')
+                            
                         if next_btn:
                             await next_btn.click()
                             await page.wait_for_timeout(1000)
+                            
+                            # CRITICAL FIX: If the URL changed, we clicked "Next Post" instead of carousel next!
+                            current_url_base = page.url.split('?')[0].rstrip('/')
+                            if current_url_base != original_url_base:
+                                break
                         else:
                             break
                     except Exception:
